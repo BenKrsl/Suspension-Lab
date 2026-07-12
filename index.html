@@ -1,0 +1,3605 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Suspension Lab — Fahrwerk, Notizen, Training</title>
+<meta name="theme-color" content="#0a0b0c">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Suspension Lab">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0a0b0c;
+    --panel:rgba(255,255,255,0.028);
+    --panel-solid:#131417;
+    --field:#0e1013;
+    --line:rgba(255,255,255,0.10);
+    --line-soft:rgba(255,255,255,0.05);
+    --text:#eceef1;
+    --muted:#8c9199;
+    --warn:#ff8a4c;
+    --ok:#6fd18a;
+    --bad:#ff6b6b;
+
+    --accent:#e8c14b;
+    --accent-2:#f6dc8e;
+    --accent-ink:#14120a;
+    --accent-glow:rgba(232,193,75,0.20);
+    --accent-soft:rgba(232,193,75,0.10);
+  }
+  /* Screen-eigene Akzentfarben werden per JS (SCREEN_THEMES) gesetzt.
+     Nur #screen-setup folgt der Marke des gewählten Bikes. */
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:'Barlow',system-ui,sans-serif;
+    font-size:15px;
+    line-height:1.5;
+    padding-bottom:calc(84px + env(safe-area-inset-bottom));
+    min-height:100vh;
+    -webkit-font-smoothing:antialiased;
+  }
+  body::before{
+    content:"";
+    position:fixed;inset:0;
+    background:radial-gradient(1200px 620px at 50% -12%, var(--accent-glow), transparent 70%);
+    pointer-events:none;z-index:0;transition:background .5s ease;
+  }
+  .wrap{max-width:820px;margin:0 auto;padding:0 18px;position:relative;z-index:1;}
+  ::selection{background:var(--accent);color:var(--accent-ink);}
+  :focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+
+  /* ---------- Topbar ---------- */
+  .topbar{
+    position:sticky;top:0;z-index:30;
+    background:rgba(10,11,12,0.82);
+    backdrop-filter:blur(14px);
+    border-bottom:1px solid var(--line-soft);
+  }
+  .topbar-inner{
+    max-width:820px;margin:0 auto;padding:12px 18px;
+    display:flex;align-items:center;justify-content:space-between;gap:12px;
+  }
+  .logo{
+    font-family:'Barlow Condensed',sans-serif;
+    font-weight:700;font-size:19px;letter-spacing:.08em;text-transform:uppercase;
+    display:flex;align-items:center;gap:9px;
+  }
+  .logo .mark{width:10px;height:18px;background:var(--accent);transform:skewX(-14deg);transition:background .4s ease;}
+  .topbar-tag{font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);}
+
+  /* ---------- Bottom Nav ---------- */
+  .navbar{
+    position:fixed;left:0;right:0;bottom:0;z-index:50;
+    background:rgba(10,11,12,0.92);
+    backdrop-filter:blur(16px);
+    border-top:1px solid var(--line);
+    padding-bottom:env(safe-area-inset-bottom);
+  }
+  .navbar-inner{max-width:820px;margin:0 auto;display:grid;grid-template-columns:repeat(4,1fr);}
+  .nav-btn{
+    background:none;border:none;cursor:pointer;color:var(--muted);
+    padding:10px 4px 12px;display:flex;flex-direction:column;align-items:center;gap:4px;
+    font-family:'Barlow Condensed',sans-serif;font-weight:600;font-size:12px;
+    letter-spacing:.09em;text-transform:uppercase;
+    border-top:2px solid transparent;margin-top:-1px;
+    transition:color .15s ease,border-color .15s ease;
+  }
+  .nav-btn svg{width:21px;height:21px;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;}
+  .nav-btn[aria-current="true"]{color:var(--accent);border-top-color:var(--accent);}
+
+  .screen{display:none;}
+  .screen.active{display:block;animation:fade .22s ease;}
+  @keyframes fade{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:none;}}
+
+  /* ---------- Hero ---------- */
+  .plate{
+    margin:22px 0 26px;border:1px solid var(--line);border-radius:16px;overflow:hidden;
+    background:linear-gradient(160deg, var(--accent-soft), transparent 55%),var(--panel-solid);
+    transition:background .45s ease;
+  }
+  .plate-stripe{height:4px;background:linear-gradient(90deg,var(--accent),var(--accent-2));transition:background .45s ease;}
+  .plate-body{padding:20px 22px 4px;}
+  .eyebrow{font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--accent);margin-bottom:8px;transition:color .4s ease;}
+  h1{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:clamp(30px,7vw,50px);line-height:.95;letter-spacing:-.005em;text-transform:uppercase;margin:0 0 4px;}
+  h1 .sub{display:block;font-size:.42em;letter-spacing:.14em;color:var(--muted);font-weight:600;margin-top:8px;}
+  .spec-plate{display:grid;grid-template-columns:repeat(4,1fr);margin-top:18px;border-top:1px solid var(--line-soft);}
+  .spec-plate div{padding:11px 14px 13px;border-right:1px solid var(--line-soft);}
+  .spec-plate div:last-child{border-right:none;}
+  .spec-plate .k{font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:4px;}
+  .spec-plate .v{font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:var(--text);}
+  @media (max-width:640px){.spec-plate{grid-template-columns:1fr 1fr;}
+    .spec-plate div:nth-child(2n){border-right:none;}
+    .spec-plate div:nth-child(-n+2){border-bottom:1px solid var(--line-soft);}}
+
+  /* ---------- Sections ---------- */
+  .section-head{display:flex;align-items:baseline;gap:12px;margin:30px 0 14px;}
+  .section-head .idx{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--accent);letter-spacing:.1em;transition:color .4s ease;}
+  .section-head h2{font-family:'Barlow Condensed',sans-serif;font-weight:600;font-size:22px;letter-spacing:.05em;text-transform:uppercase;margin:0;}
+  .page-head{margin:24px 0 18px;}
+  .page-head h2{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:32px;letter-spacing:.02em;text-transform:uppercase;margin:0;}
+  .page-head p{font-size:13px;color:var(--muted);margin:6px 0 0;max-width:60ch;}
+
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px;backdrop-filter:blur(6px);}
+  .panel + .panel{margin-top:14px;}
+
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+  .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;}
+  @media (max-width:600px){.grid2,.grid3{grid-template-columns:1fr;}}
+
+  .field{margin-bottom:16px;}
+  .field:last-child{margin-bottom:0;}
+  label{display:block;font-size:12px;color:var(--muted);margin-bottom:6px;letter-spacing:.05em;text-transform:uppercase;font-weight:600;}
+  .hint-line{font-size:12px;color:var(--muted);margin-top:6px;line-height:1.45;}
+
+  input[type=number],input[type=text],input[type=date],select,textarea{
+    width:100%;background:var(--field);border:1px solid var(--line);color:var(--text);
+    padding:11px 12px;border-radius:9px;font-family:'Barlow',sans-serif;font-size:15px;
+    -webkit-appearance:none;appearance:none;transition:border-color .15s ease, background .15s ease;
+  }
+  textarea{min-height:84px;resize:vertical;line-height:1.5;}
+  input[type=date]{font-family:'IBM Plex Mono',monospace;font-size:14px;}
+  select{
+    background-image:linear-gradient(45deg,transparent 50%,var(--muted) 50%),linear-gradient(135deg,var(--muted) 50%,transparent 50%);
+    background-position:calc(100% - 18px) 50%, calc(100% - 13px) 50%;
+    background-size:5px 5px,5px 5px;background-repeat:no-repeat;padding-right:36px;
+  }
+  select option, select optgroup{background:#15171a;color:var(--text);}
+  input:focus,select:focus,textarea:focus{border-color:var(--accent);background:#0b0d10;}
+  input:disabled{opacity:.45;}
+
+  /* ---------- Chips ---------- */
+  .chips{display:flex;flex-wrap:wrap;gap:8px;}
+  .chip{
+    border:1px solid var(--line);background:var(--field);color:var(--muted);
+    padding:9px 14px;border-radius:999px;font-size:13.5px;cursor:pointer;user-select:none;
+    transition:all .15s ease;font-family:inherit;
+  }
+  .chip:hover{border-color:rgba(255,255,255,0.22);color:var(--text);}
+  .chip[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft);color:var(--accent);font-weight:600;}
+
+  .note{font-size:12.5px;color:var(--muted);line-height:1.55;border-left:2px solid var(--accent);padding-left:12px;margin-top:14px;transition:border-color .4s ease;}
+
+  /* ---------- Wizard ---------- */
+  .wiz-top{margin:22px 0 18px;}
+  .wiz-rail{display:flex;gap:5px;}
+  .wiz-rail span{flex:1;height:3px;border-radius:2px;background:rgba(255,255,255,.10);transition:background .3s ease;}
+  .wiz-rail span.done{background:var(--accent);}
+  .wiz-rail span.now{background:var(--accent-2);}
+  .wiz-meta{display:flex;justify-content:space-between;align-items:baseline;margin-top:10px;gap:12px;}
+  .wiz-count{font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);}
+  .wiz-jump{background:none;border:none;color:var(--accent);font:inherit;font-size:12px;cursor:pointer;text-decoration:underline;padding:0;}
+  .wiz-title{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:30px;text-transform:uppercase;letter-spacing:.02em;margin:14px 0 2px;line-height:1.05;}
+  .wiz-lead{font-size:13.5px;color:var(--muted);margin:0 0 18px;max-width:62ch;line-height:1.5;}
+
+  .wiz-nav{display:flex;gap:10px;margin-top:24px;}
+  .wiz-nav .btn{margin-top:0;}
+  .btn-back{
+    flex:0 0 auto;background:transparent;color:var(--muted);border:1px solid var(--line);
+    border-radius:11px;padding:16px 20px;cursor:pointer;font-family:'Barlow Condensed',sans-serif;
+    font-weight:700;font-size:17px;letter-spacing:.08em;text-transform:uppercase;transition:all .15s ease;
+  }
+  .btn-back:hover{color:var(--text);border-color:rgba(255,255,255,.25);}
+  .wiz-nav .btn{flex:1;}
+
+  /* ---------- Cards (Auswahl) ---------- */
+  .pick-grid{display:grid;gap:10px;}
+  .pick-grid.two{grid-template-columns:1fr 1fr;}
+  @media (max-width:520px){.pick-grid.two{grid-template-columns:1fr;}}
+  .pick{
+    position:relative;border:1px solid var(--line);background:var(--field);border-radius:12px;
+    padding:14px 15px;text-align:left;cursor:pointer;transition:all .15s ease;color:var(--text);font-family:inherit;
+  }
+  .pick:hover{border-color:rgba(255,255,255,0.22);}
+  .pick .pn{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:17px;text-transform:uppercase;letter-spacing:.06em;}
+  .pick .pd{font-size:12px;color:var(--muted);margin-top:3px;line-height:1.4;}
+  .pick .pv{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--muted);margin-top:6px;}
+  .pick[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft);}
+  .pick[aria-pressed="true"] .pn{color:var(--accent);}
+  .pick[aria-pressed="true"] .pv{color:var(--text);}
+  .pick-tag{
+    position:absolute;top:12px;right:12px;
+    font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:.12em;text-transform:uppercase;
+    color:var(--accent);border:1px solid var(--accent);border-radius:999px;padding:3px 8px;
+  }
+  .pick[aria-pressed="true"] .pick-tag{background:var(--accent);color:var(--accent-ink);}
+
+  /* Gesamtgewicht-Anzeige */
+  .total-box{
+    display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap;
+    background:var(--panel-solid);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-top:16px;
+  }
+  .total-box .tb-k{font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);font-weight:600;}
+  .total-box .tb-v{font-family:'IBM Plex Mono',monospace;font-size:24px;font-weight:600;color:var(--accent);}
+  .total-box .tb-s{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted);width:100%;}
+
+  /* Zusammenfassung */
+  .sum{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--panel-solid);}
+  .sum-row{display:flex;gap:12px;justify-content:space-between;align-items:baseline;padding:11px 15px;border-bottom:1px solid var(--line-soft);}
+  .sum-row:last-child{border-bottom:none;}
+  .sum-row .sk{font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);font-weight:600;flex-shrink:0;}
+  .sum-row .sv{font-family:'IBM Plex Mono',monospace;font-size:12.5px;text-align:right;}
+
+  /* ---------- Button ---------- */
+  .btn{
+    width:100%;margin-top:26px;background:var(--accent);color:var(--accent-ink);border:none;
+    padding:16px;border-radius:11px;font-family:'Barlow Condensed',sans-serif;font-weight:700;
+    font-size:19px;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;
+    transition:filter .15s ease,transform .08s ease,background .4s ease;
+  }
+  .btn:hover{filter:brightness(1.1);}
+  .btn:active{transform:scale(.99);}
+  .btn:disabled{opacity:.4;cursor:not-allowed;}
+  .btn.ghost{background:transparent;color:var(--text);border:1px solid var(--line);margin-top:0;font-size:15px;padding:12px 16px;width:auto;}
+  .btn.ghost:hover{border-color:var(--accent);color:var(--accent);}
+  .btn.small{padding:8px 12px;font-size:13px;letter-spacing:.05em;}
+  .btn.full{width:100%;}
+  .btn.danger:hover{border-color:var(--bad);color:var(--bad);}
+
+  /* ---------- Results ---------- */
+  #results{display:none;margin-top:26px;}
+  .banner{
+    font-family:'IBM Plex Mono',monospace;font-size:12.5px;line-height:1.6;
+    color:var(--accent);background:var(--accent-soft);border:1px solid var(--accent);
+    border-radius:11px;padding:12px 15px;transition:all .4s ease;
+  }
+  .tabs{display:flex;gap:4px;margin:22px 0 0;border-bottom:1px solid var(--line);overflow-x:auto;}
+  .tab{
+    font-family:'Barlow Condensed',sans-serif;font-weight:600;font-size:16px;letter-spacing:.06em;
+    text-transform:uppercase;color:var(--muted);padding:11px 15px;cursor:pointer;white-space:nowrap;
+    border:none;background:none;border-bottom:2px solid transparent;
+  }
+  .tab[aria-selected="true"]{color:var(--accent);border-bottom-color:var(--accent);}
+  .tab-panel{display:none;padding:22px 0 6px;}
+  .tab-panel.active{display:block;}
+
+  .metric-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:18px;}
+  @media (max-width:520px){.metric-grid{grid-template-columns:1fr;}}
+  .metric{background:var(--panel-solid);border:1px solid var(--line);border-radius:12px;padding:16px 18px;}
+  .metric .label{font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:8px;font-weight:600;}
+  .metric .value{font-family:'IBM Plex Mono',monospace;font-size:27px;font-weight:600;color:var(--accent);letter-spacing:-.02em;transition:color .4s ease;}
+  .metric .value.range{font-size:21px;letter-spacing:-.01em;}
+  .metric .note{font-size:12px;color:var(--muted);margin-top:7px;line-height:1.45;border:none;padding:0;}
+  .metric.neutral .value{color:var(--text);}
+
+  .subhead{font-family:'Barlow Condensed',sans-serif;font-weight:600;font-size:18px;text-transform:uppercase;letter-spacing:.05em;margin:24px 0 3px;}
+  .subhead:first-child{margin-top:0;}
+  .subhead-desc{font-size:12px;color:var(--muted);margin-bottom:14px;}
+
+  .gauge-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  @media (max-width:560px){.gauge-grid{grid-template-columns:1fr;}}
+  .gauge{background:var(--panel-solid);border:1px solid var(--line);border-radius:12px;padding:14px 16px;display:flex;align-items:center;gap:15px;}
+  .gauge .g-txt{flex:1;min-width:0;}
+  .gauge .g-title{font-size:13px;color:var(--text);font-weight:600;}
+  .gauge .g-sub{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted);margin-top:3px;}
+  .gauge .g-delta{font-family:'IBM Plex Mono',monospace;font-size:11px;margin-top:3px;}
+  .g-delta.up{color:var(--ok);} .g-delta.down{color:var(--warn);} .g-delta.same{color:var(--muted);}
+
+  ul.reasons{margin:0;padding-left:0;list-style:none;}
+  ul.reasons li{background:var(--panel-solid);border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-bottom:9px;font-size:13.5px;color:var(--text);line-height:1.5;}
+  ul.reasons li b{color:var(--accent);font-weight:600;transition:color .4s ease;}
+  ul.reasons li:last-child{margin-bottom:0;}
+
+  .save-row{display:flex;gap:10px;margin-top:16px;flex-wrap:wrap;}
+  .save-row input{flex:1;min-width:180px;}
+  .saved-list{margin-top:14px;display:flex;flex-direction:column;gap:9px;}
+  .saved-item{background:var(--panel-solid);border:1px solid var(--line);border-radius:11px;padding:12px 14px;display:flex;align-items:center;gap:12px;}
+  .saved-item .si-bar{width:3px;align-self:stretch;border-radius:2px;background:var(--accent);flex-shrink:0;}
+  .saved-item .si-main{flex:1;min-width:0;}
+  .saved-item .si-name{font-weight:600;font-size:14.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .saved-item .si-meta{font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:var(--muted);margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .saved-item .si-actions{display:flex;gap:6px;flex-shrink:0;}
+  .icon-btn{background:transparent;border:1px solid var(--line);color:var(--muted);border-radius:8px;padding:7px 10px;cursor:pointer;font-size:12px;font-weight:600;transition:all .15s ease;font-family:inherit;}
+  .icon-btn:hover{color:var(--text);border-color:rgba(255,255,255,.25);}
+  .icon-btn.danger:hover{color:var(--bad);border-color:var(--bad);}
+  .empty{font-size:13px;color:var(--muted);padding:16px 0;line-height:1.55;}
+
+  .warnbox{margin-top:10px;font-size:13px;line-height:1.55;color:var(--warn);background:rgba(255,138,76,0.08);border:1px solid rgba(255,138,76,0.45);border-radius:11px;padding:12px 15px;}
+  .okbox{margin-top:10px;font-size:13px;line-height:1.55;color:var(--ok);background:rgba(111,209,138,0.07);border:1px solid rgba(111,209,138,0.35);border-radius:11px;padding:12px 15px;}
+  .click-flags{margin-top:16px;display:grid;gap:9px;}
+  .click-flags:empty{margin-top:0;}
+  .flagbox{font-size:13px;line-height:1.55;border-radius:11px;padding:12px 15px;}
+  .flagbox b{font-weight:600;}
+  .flagbox.warn{color:var(--warn);background:rgba(255,138,76,0.08);border:1px solid rgba(255,138,76,0.45);}
+  .flagbox.info{color:var(--accent-2);background:var(--accent-soft);border:1px solid rgba(232,193,75,0.35);}
+
+  .sym-out{margin-top:20px;}
+  .fix-row{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;background:var(--panel-solid);border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-bottom:9px;}
+  .fix-row .fk{font-size:13.5px;font-weight:600;flex:1;min-width:150px;}
+  .fix-row .fv{font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:var(--accent);}
+  .fix-row .fd{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted);width:100%;}
+  .fix-row.conflict{border-color:var(--warn);}
+  .fix-row.conflict .fv{color:var(--warn);}
+
+  .toast{
+    position:fixed;left:50%;bottom:calc(94px + env(safe-area-inset-bottom));transform:translate(-50%,20px);
+    background:var(--accent);color:var(--accent-ink);padding:11px 20px;border-radius:999px;
+    font-weight:600;font-size:14px;opacity:0;pointer-events:none;transition:all .25s ease;z-index:60;
+  }
+  .toast.show{opacity:1;transform:translate(-50%,0);}
+
+  .disclaimer{margin-top:34px;font-size:12.5px;color:var(--muted);border-top:1px solid var(--line);padding-top:16px;line-height:1.6;}
+  .disclaimer b{color:var(--warn);}
+  .sources{margin-top:10px;font-size:11px;line-height:1.7;}
+
+  /* ---------- Checklisten (Training / Packliste) ---------- */
+  .cat{border:1px solid var(--line);border-radius:13px;background:var(--panel-solid);margin-bottom:12px;overflow:hidden;}
+  .cat-head{
+    width:100%;display:flex;align-items:center;justify-content:space-between;gap:12px;
+    background:none;border:none;color:var(--text);cursor:pointer;padding:14px 16px;font-family:inherit;text-align:left;
+  }
+  .cat-head .ch-l{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:16px;text-transform:uppercase;letter-spacing:.06em;}
+  .cat-head .ch-r{display:flex;align-items:center;gap:10px;}
+  .cat-count{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted);}
+  .cat-count.full{color:var(--ok);}
+  .caret{width:9px;height:9px;border-right:1.6px solid var(--muted);border-bottom:1.6px solid var(--muted);transform:rotate(45deg);transition:transform .2s ease;margin-bottom:3px;}
+  .cat.open .caret{transform:rotate(225deg);margin-bottom:0;margin-top:3px;}
+  .cat-body{display:none;padding:0 16px 14px;}
+  .cat.open .cat-body{display:block;}
+
+  .ci{display:flex;align-items:flex-start;gap:11px;padding:9px 0;border-top:1px solid var(--line-soft);}
+  .ci:first-child{border-top:none;}
+  .ci .box{
+    flex-shrink:0;width:20px;height:20px;border-radius:6px;border:1.5px solid var(--line);
+    background:var(--field);cursor:pointer;position:relative;margin-top:1px;transition:all .15s ease;
+  }
+  .ci .box:hover{border-color:var(--accent);}
+  .ci .box[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);}
+  .ci .box[aria-pressed="true"]::after{
+    content:"";position:absolute;left:6px;top:2px;width:5px;height:10px;
+    border-right:2px solid var(--accent-ink);border-bottom:2px solid var(--accent-ink);transform:rotate(42deg);
+  }
+  .ci .ci-l{flex:1;font-size:14.5px;line-height:1.35;cursor:pointer;}
+  .ci .ci-l small{display:block;font-size:11.5px;color:var(--muted);margin-top:2px;}
+  .ci[data-done="true"] .ci-l{color:var(--muted);text-decoration:line-through;text-decoration-color:rgba(255,255,255,.25);}
+  .ci .ci-x{background:none;border:none;color:var(--muted);cursor:pointer;font-size:17px;line-height:1;padding:2px 4px;opacity:.5;}
+  .ci .ci-x:hover{opacity:1;color:var(--bad);}
+
+  .add-row{display:flex;gap:8px;margin-top:12px;}
+  .add-row input{flex:1;padding:9px 11px;font-size:14px;}
+  .add-btn{
+    flex-shrink:0;background:var(--accent-soft);border:1px solid var(--accent);color:var(--accent);
+    border-radius:9px;padding:0 16px;cursor:pointer;font-family:'Barlow Condensed',sans-serif;
+    font-weight:700;font-size:15px;letter-spacing:.06em;text-transform:uppercase;transition:all .15s ease;
+  }
+  .add-btn:hover{background:var(--accent);color:var(--accent-ink);}
+
+  /* Fortschrittsring */
+  .prog-card{display:flex;align-items:center;gap:16px;background:var(--panel-solid);border:1px solid var(--line);border-radius:13px;padding:16px;margin-bottom:16px;}
+  .prog-card .pc-txt{flex:1;min-width:0;}
+  .prog-card .pc-t{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:18px;text-transform:uppercase;letter-spacing:.05em;}
+  .prog-card .pc-s{font-size:12.5px;color:var(--muted);margin-top:2px;}
+
+  /* ---------- Notizen / Service ---------- */
+  .entry{background:var(--panel-solid);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-bottom:10px;}
+  .entry-top{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px;}
+  .tagpill{
+    font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;
+    padding:3px 8px;border-radius:999px;border:1px solid var(--line);color:var(--muted);
+  }
+  .tagpill.accent{color:var(--accent);border-color:var(--accent);background:var(--accent-soft);}
+  .tagpill.ok{color:var(--ok);border-color:rgba(111,209,138,.5);}
+  .tagpill.warn{color:var(--warn);border-color:rgba(255,138,76,.5);}
+  .tagpill.bad{color:var(--bad);border-color:rgba(255,107,107,.5);}
+  .entry-date{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted);margin-left:auto;}
+  .entry-title{font-weight:600;font-size:15px;}
+  .entry-text{font-size:13.5px;color:var(--muted);line-height:1.55;margin-top:5px;white-space:pre-wrap;}
+  .entry-foot{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:10px;}
+  .entry-meta{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted);}
+
+  .svc{background:var(--panel-solid);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-bottom:10px;}
+  .svc.due{border-color:rgba(255,107,107,.5);}
+  .svc.soon{border-color:rgba(255,138,76,.45);}
+  .svc-top{display:flex;align-items:center;gap:10px;}
+  .svc-name{font-weight:600;font-size:15px;flex:1;}
+  .svc-bar{height:4px;border-radius:2px;background:rgba(255,255,255,.08);margin-top:11px;overflow:hidden;}
+  .svc-bar i{display:block;height:100%;border-radius:2px;background:var(--accent);transition:width .3s ease;}
+  .svc.soon .svc-bar i{background:var(--warn);}
+  .svc.due .svc-bar i{background:var(--bad);}
+  .svc-meta{display:flex;justify-content:space-between;gap:10px;margin-top:8px;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted);}
+  .svc-actions{display:flex;gap:6px;margin-top:11px;}
+
+  .filterbar{display:flex;gap:7px;overflow-x:auto;padding-bottom:4px;margin-bottom:14px;}
+  .filterbar .chip{padding:7px 13px;font-size:12.5px;white-space:nowrap;}
+
+  details.acc{border:1px solid var(--line);border-radius:12px;background:var(--panel);margin-bottom:14px;overflow:hidden;}
+  details.acc > summary{
+    padding:14px 16px;cursor:pointer;list-style:none;
+    font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:16px;
+    text-transform:uppercase;letter-spacing:.06em;display:flex;justify-content:space-between;align-items:center;
+  }
+  details.acc > summary::-webkit-details-marker{display:none;}
+  details.acc > summary::after{content:"+";color:var(--accent);font-size:20px;font-weight:400;}
+  details.acc[open] > summary::after{content:"–";}
+  details.acc .acc-body{padding:0 16px 16px;}
+
+  @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important;}}
+
+  /* ---------- Handy-Rahmen (nur auf großen Screens) ----------
+     Auf dem echten Handy bleibt die App randlos. Ab 720 px Breite –
+     also Desktop-Vorschau – wird sie in ein Smartphone im Hochformat
+     gesetzt, damit man sieht, wie es auf dem Handy aussieht. */
+  @media (min-width:720px){
+    html{
+      background:#000;min-height:100vh;
+      display:flex;align-items:center;justify-content:center;
+      padding:22px 0;
+    }
+    body{
+      position:relative;
+      width:402px;
+      height:min(892px, calc(100vh - 44px));
+      padding-bottom:0;
+      overflow-y:auto;overflow-x:hidden;
+      -webkit-overflow-scrolling:touch;
+      border-radius:46px;
+      border:11px solid #17181c;
+      box-shadow:0 40px 90px rgba(0,0,0,.6), 0 0 0 1px rgba(255,255,255,.05);
+      scrollbar-width:none;
+    }
+    body::-webkit-scrollbar{display:none;}
+    body::before{position:absolute;}          /* Glow im Rahmen halten */
+    .navbar{position:sticky;left:auto;right:auto;bottom:0;}
+    .wrap{padding-bottom:18px;}
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-inner">
+    <div class="logo"><span class="mark"></span>Suspension Lab</div>
+    <div class="topbar-tag" id="topTag">MX · Enduro · Cross-Country · Supermoto</div>
+  </div>
+</div>
+
+<!-- ================= SCREEN: SETUP ================= -->
+<div class="screen active" id="screen-setup">
+<div class="wrap">
+
+  <div class="plate">
+    <div class="plate-stripe"></div>
+    <div class="plate-body">
+      <div class="eyebrow" id="eyebrow">Fahrwerks-Setup</div>
+      <h1 id="pageTitle">Stark VARG MX<span class="sub" id="pageSub">Stark Future</span></h1>
+      <div class="spec-plate" id="specPlate"></div>
+    </div>
+  </div>
+
+  <!-- WIZARD -->
+  <div id="wizard">
+    <div class="wiz-top">
+      <div class="wiz-rail" id="wizRail"></div>
+      <div class="wiz-meta">
+        <div class="wiz-count" id="wizCount"></div>
+        <button type="button" class="wiz-jump" id="wizJump" hidden>Direkt zum Ergebnis</button>
+      </div>
+      <div class="wiz-title" id="wizTitle"></div>
+      <p class="wiz-lead" id="wizLead"></p>
+    </div>
+
+    <div class="panel" id="wizPanel"></div>
+
+    <div class="wiz-nav">
+      <button type="button" class="btn-back" id="btnBack">Zurück</button>
+      <button type="button" class="btn" id="btnNext">Weiter</button>
+    </div>
+  </div>
+
+  <!-- RESULTS -->
+  <div id="results">
+    <div class="banner" id="banner"></div>
+    <div class="warnbox" id="warnBox" hidden></div>
+
+    <div class="tabs" role="tablist">
+      <button class="tab" data-tab="sag" role="tab" aria-selected="true">Federn &amp; Sag</button>
+      <button class="tab" data-tab="geo" role="tab" aria-selected="false">Geometrie</button>
+      <button class="tab" data-tab="click" role="tab" aria-selected="false">Klicker</button>
+      <button class="tab" data-tab="sym" role="tab" aria-selected="false">Symptome</button>
+      <button class="tab" data-tab="why" role="tab" aria-selected="false">Begründung</button>
+    </div>
+
+    <div class="tab-panel active" id="tab-sag">
+      <div class="subhead">Verbaut gegen Ziel</div>
+      <div class="subhead-desc">Links steht, was auf dem Motorrad ist. Rechts, was für dein Gesamtgewicht rechnerisch passt.</div>
+      <div class="metric-grid">
+        <div class="metric">
+          <div class="label" id="forkSpringLabel">Gabelfeder verbaut</div>
+          <div class="value" id="forkSpring">–</div>
+          <div class="note" id="forkSpringNote"></div>
+        </div>
+        <div class="metric neutral">
+          <div class="label" id="forkTargetLabel">Gabelfeder Ziel</div>
+          <div class="value" id="forkTarget">–</div>
+          <div class="note" id="forkTargetNote"></div>
+        </div>
+        <div class="metric">
+          <div class="label">Federbein verbaut</div>
+          <div class="value" id="shockSpring">–</div>
+          <div class="note" id="shockSpringNote"></div>
+        </div>
+        <div class="metric neutral">
+          <div class="label">Federbein Ziel</div>
+          <div class="value" id="shockTarget">–</div>
+          <div class="note" id="shockTargetNote"></div>
+        </div>
+      </div>
+      <div id="springVerdict"></div>
+
+      <div class="subhead">Sag-Zielwerte</div>
+      <div class="subhead-desc">Am Heck gemessen, mit voller Ausrüstung, in Fahrhaltung auf den Fußrasten.</div>
+      <div class="metric-grid">
+        <div class="metric">
+          <div class="label">Statischer Sag</div>
+          <div class="value" id="staticSag">–</div>
+          <div class="note" id="staticSagNote"></div>
+        </div>
+        <div class="metric">
+          <div class="label">Fahrer-Sag</div>
+          <div class="value" id="riderSag">–</div>
+          <div class="note" id="riderSagNote"></div>
+        </div>
+      </div>
+      <div id="preloadBlock" hidden>
+        <div class="subhead">Vorspannung Federbein</div>
+        <div class="subhead-desc">Gegenüber dem Gelände-Setup desselben Motorrads.</div>
+        <div class="metric">
+          <div class="label">Mehr Vorspannung</div>
+          <div class="value range" id="preloadValue">–</div>
+          <div class="note" id="preloadNote"></div>
+        </div>
+      </div>
+
+      <div class="subhead">Sag nachmessen</div>
+      <div class="subhead-desc">L1 Hinterrad entlastet · L2 Motorrad allein · L3 mit Fahrer, alles am selben Punkt am Heck gemessen.</div>
+      <div class="grid3">
+        <div class="field"><label for="l1">L1 in mm</label><input type="number" id="l1" min="0" max="800" step="1" placeholder="z. B. 620"></div>
+        <div class="field"><label for="l2">L2 in mm</label><input type="number" id="l2" min="0" max="800" step="1" placeholder="z. B. 587"></div>
+        <div class="field"><label for="l3">L3 in mm</label><input type="number" id="l3" min="0" max="800" step="1" placeholder="z. B. 515"></div>
+      </div>
+      <div class="note" id="sagOut">Trage L1, L2 und L3 ein. Die App rechnet den Ist-Sag aus und sagt, in welche Richtung der Federteller muss.</div>
+    </div>
+
+    <div class="tab-panel" id="tab-geo">
+      <div class="subhead" id="geoHead">Gabelüberstand</div>
+      <div class="subhead-desc">Gemessen von der Oberkante der oberen Gabelbrücke bis zur Oberkante des Standrohrs.</div>
+      <div class="metric" style="margin-bottom:14px;">
+        <div class="label" id="geoLabel">Gabel durchgesteckt um</div>
+        <div class="value" id="geoValue">–</div>
+        <div class="note" id="geoNote"></div>
+      </div>
+      <div class="metric-grid">
+        <div class="metric">
+          <div class="label">Lenkverhalten</div>
+          <div class="value" id="geoSteer" style="font-size:20px;">–</div>
+        </div>
+        <div class="metric">
+          <div class="label">Heckhöhe</div>
+          <div class="value" id="geoRear" style="font-size:20px;">–</div>
+          <div class="note" id="geoRearNote"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="tab-panel" id="tab-click">
+      <div class="subhead" id="forkClickHead">Gabel</div>
+      <div class="subhead-desc">Klicks von komplett zugedreht nach außen gezählt. Mehr Klicks offen heißt weicher.</div>
+      <div class="gauge-grid" id="forkGauges"></div>
+      <div class="subhead" id="shockClickHead">Federbein</div>
+      <div class="subhead-desc" id="shockClickDesc"></div>
+      <div class="gauge-grid" id="shockGauges"></div>
+      <div class="click-flags" id="clickFlags"></div>
+    </div>
+
+    <div class="tab-panel" id="tab-sym">
+      <div class="subhead">Was stört dich?</div>
+      <div class="subhead-desc">Mehrfachauswahl. Die App rechnet vom oben berechneten Setup aus weiter.</div>
+      <div class="chips" id="symptomChips"></div>
+      <div id="symptomOut"></div>
+    </div>
+
+    <div class="tab-panel" id="tab-why">
+      <div class="subhead">Warum diese Werte</div>
+      <div class="subhead-desc">Jede Zeile ist eine Anpassung gegenüber der Werksbasis.</div>
+      <ul class="reasons" id="reasonsList"></ul>
+    </div>
+
+    <div class="section-head"><span class="idx">SAVE</span><h2>Setup sichern</h2></div>
+    <div class="panel">
+      <div class="save-row">
+        <input type="text" id="setupName" placeholder="z. B. Kiesgrube Sonntag, nass" maxlength="60">
+        <button class="btn ghost" id="saveBtn">Speichern</button>
+      </div>
+      <div class="note">Landet in der Garage, zusammen mit allen Eingaben. Von dort lässt es sich jederzeit wieder laden.</div>
+    </div>
+
+    <div class="wiz-nav">
+      <button type="button" class="btn-back" id="btnEdit">Eingaben ändern</button>
+      <button type="button" class="btn" id="btnRestart">Neues Setup</button>
+    </div>
+
+    <div class="disclaimer">
+      <b>Kein Ersatz für einen Fahrwerkstechniker.</b> Alle Werte sind Startpunkte, keine Endwerte.
+      Verstelle immer nur eine Sache pro Ausfahrt und schreib auf, was du gemacht hast.
+      <div class="sources" id="sourcesBox"></div>
+    </div>
+  </div>
+
+</div>
+</div>
+
+<!-- ================= SCREEN: NOTIZEN ================= -->
+<div class="screen" id="screen-notes">
+<div class="wrap">
+  <div class="page-head">
+    <h2>Notizen &amp; Service</h2>
+    <p>Was du am Motorrad gemacht hast, wann es war und wann das nächste Mal ansteht.</p>
+  </div>
+
+  <div class="section-head"><span class="idx">01</span><h2>Service-Intervalle</h2></div>
+
+  <div id="svcList"></div>
+
+  <details class="acc" id="svcAdd">
+    <summary>Service-Punkt hinzufügen</summary>
+    <div class="acc-body">
+      <div class="field">
+        <label for="svcPreset">Vorlage</label>
+        <select id="svcPreset"></select>
+      </div>
+      <div class="field" id="svcNameField" hidden>
+        <label for="svcName">Eigener Name</label>
+        <input type="text" id="svcName" placeholder="z. B. Schwingenlager schmieren" maxlength="48">
+      </div>
+      <div class="grid2">
+        <div class="field">
+          <label for="svcLast">Zuletzt gemacht</label>
+          <input type="date" id="svcLast">
+        </div>
+        <div class="field">
+          <label for="svcEvery">Intervall</label>
+          <select id="svcEvery">
+            <option value="7">Jede Woche</option>
+            <option value="14">Alle 2 Wochen</option>
+            <option value="30" selected>Jeden Monat</option>
+            <option value="60">Alle 2 Monate</option>
+            <option value="90">Alle 3 Monate</option>
+            <option value="180">Alle 6 Monate</option>
+            <option value="365">Einmal im Jahr</option>
+            <option value="custom">Eigene Anzahl Tage</option>
+          </select>
+        </div>
+      </div>
+      <div class="field" id="svcDaysField" hidden>
+        <label for="svcDays">Intervall in Tagen</label>
+        <input type="number" id="svcDays" min="1" max="2000" step="1" value="45">
+      </div>
+      <div class="grid2">
+        <div class="field">
+          <label for="svcHours">Betriebsstunden beim letzten Mal <span style="text-transform:none;">(optional)</span></label>
+          <input type="number" id="svcHours" min="0" max="9999" step="0.5" placeholder="z. B. 42">
+        </div>
+        <div class="field">
+          <label for="svcHoursEvery">Intervall in Stunden <span style="text-transform:none;">(optional)</span></label>
+          <input type="number" id="svcHoursEvery" min="0" max="999" step="0.5" placeholder="z. B. 15">
+        </div>
+      </div>
+      <button class="btn" id="svcAddBtn">Service-Punkt anlegen</button>
+    </div>
+  </details>
+
+  <div class="section-head"><span class="idx">02</span><h2>Notizbuch</h2></div>
+
+  <details class="acc" id="noteAdd" open>
+    <summary>Neue Notiz</summary>
+    <div class="acc-body">
+      <div class="grid2">
+        <div class="field">
+          <label for="noteDate">Datum</label>
+          <input type="date" id="noteDate">
+        </div>
+        <div class="field">
+          <label for="noteType">Art</label>
+          <select id="noteType">
+            <option value="note">Allgemeine Notiz</option>
+            <option value="service">Service / Wartung</option>
+            <option value="setup">Setup-Änderung</option>
+            <option value="ride">Training / Ausfahrt</option>
+            <option value="race">Rennen</option>
+            <option value="issue">Defekt / Sturz</option>
+            <option value="part">Neues Teil</option>
+          </select>
+        </div>
+      </div>
+      <div class="field">
+        <label for="noteTitle">Titel</label>
+        <input type="text" id="noteTitle" placeholder="z. B. Gabelservice bei 40 h" maxlength="70">
+      </div>
+      <div class="field">
+        <label for="noteText">Text</label>
+        <textarea id="noteText" placeholder="Was gemacht, was aufgefallen, was beim nächsten Mal anders."></textarea>
+      </div>
+      <div class="grid2">
+        <div class="field">
+          <label for="noteHours">Betriebsstunden <span style="text-transform:none;">(optional)</span></label>
+          <input type="number" id="noteHours" min="0" max="9999" step="0.5" placeholder="z. B. 42">
+        </div>
+        <div class="field">
+          <label for="noteNext">Nächster Service fällig <span style="text-transform:none;">(optional)</span></label>
+          <input type="date" id="noteNext">
+        </div>
+      </div>
+      <button class="btn" id="noteAddBtn">Notiz speichern</button>
+    </div>
+  </details>
+
+  <div class="filterbar" id="noteFilter"></div>
+  <div id="noteList"></div>
+
+  <div class="save-row" id="noteTools" hidden>
+    <button class="btn ghost small" id="notesExport">Notizen als JSON exportieren</button>
+  </div>
+</div>
+</div>
+
+<!-- ================= SCREEN: TRAINING ================= -->
+<div class="screen" id="screen-training">
+<div class="wrap">
+  <div class="page-head">
+    <h2>Trainingstag</h2>
+    <p>Was du üben willst und was mit muss. Beides bleibt gespeichert, bis du den Tag abschließt.</p>
+  </div>
+
+  <div class="panel">
+    <div class="grid2">
+      <div class="field">
+        <label for="trDate">Datum</label>
+        <input type="date" id="trDate">
+      </div>
+      <div class="field">
+        <label for="trPlace">Strecke oder Ort</label>
+        <input type="text" id="trPlace" placeholder="z. B. MX-Park Kiesgrube" maxlength="60">
+      </div>
+    </div>
+    <div class="field" style="margin-bottom:0;">
+      <label for="trGoal">Ziel für den Tag</label>
+      <input type="text" id="trGoal" placeholder="z. B. In Rillen konstant bleiben" maxlength="80">
+    </div>
+  </div>
+
+  <div class="section-head"><span class="idx">01</span><h2>Üben</h2></div>
+  <div class="prog-card">
+    <div id="exRing"></div>
+    <div class="pc-txt">
+      <div class="pc-t" id="exTitle">Übungen</div>
+      <div class="pc-s" id="exSub"></div>
+    </div>
+  </div>
+  <div id="exCats"></div>
+  <div class="panel" style="margin-top:14px;">
+    <label for="exNew">Eigene Übung</label>
+    <div class="add-row" style="margin-top:0;">
+      <input type="text" id="exNew" placeholder="z. B. Späte Bremspunkte vor Steilkurve" maxlength="60">
+      <button class="add-btn" id="exAddBtn">Add</button>
+    </div>
+  </div>
+  <div class="save-row">
+    <button class="btn ghost small" id="exReset">Haken zurücksetzen</button>
+  </div>
+
+  <div class="section-head"><span class="idx">02</span><h2>Packliste</h2></div>
+  <div class="prog-card">
+    <div id="pkRing"></div>
+    <div class="pc-txt">
+      <div class="pc-t" id="pkTitle">Gepackt</div>
+      <div class="pc-s" id="pkSub"></div>
+    </div>
+  </div>
+  <div id="pkCats"></div>
+  <div class="save-row">
+    <button class="btn ghost small" id="pkReset">Haken zurücksetzen</button>
+    <button class="btn ghost small" id="pkAllOpen">Alle Kategorien öffnen</button>
+  </div>
+
+  <div class="section-head"><span class="idx">03</span><h2>Tag abschließen</h2></div>
+  <div class="panel">
+    <div class="field">
+      <label for="trSummary">Wie lief es?</label>
+      <textarea id="trSummary" placeholder="Was hat funktioniert, was nicht. Wird als Notiz gespeichert."></textarea>
+    </div>
+    <button class="btn" id="trFinish">Trainingstag ins Notizbuch schreiben</button>
+    <div class="note">Der Tag landet als Notiz mit Datum, Strecke, Zielen und dem, was du abgehakt hast. Danach werden die Haken zurückgesetzt.</div>
+  </div>
+
+  <div class="section-head"><span class="idx">04</span><h2>Vergangene Tage</h2></div>
+  <div id="trHistory"></div>
+</div>
+</div>
+
+<!-- ================= SCREEN: GARAGE ================= -->
+<div class="screen" id="screen-garage">
+<div class="wrap">
+  <div class="page-head">
+    <h2>Garage</h2>
+    <p>Gespeicherte Setups. Ein Tipp auf Laden setzt alle Eingaben zurück auf diesen Stand.</p>
+  </div>
+  <div class="saved-list" id="savedList"></div>
+  <div class="save-row" id="exportRow" hidden>
+    <button class="btn ghost small" id="exportBtn">Als JSON exportieren</button>
+    <button class="btn ghost small danger" id="clearBtn">Alle löschen</button>
+  </div>
+
+  <div class="section-head"><span class="idx">DATA</span><h2>Alles sichern</h2></div>
+  <div class="panel">
+    <p style="margin:0 0 14px;font-size:13.5px;color:var(--muted);line-height:1.55;">
+      Setups, Notizen, Service-Punkte, Übungen und Packliste in einer Datei. Zum Umziehen auf ein anderes Gerät oder als Backup.
+    </p>
+    <div class="save-row" style="margin-top:0;">
+      <button class="btn ghost small" id="backupBtn">Komplettes Backup laden</button>
+    </div>
+  </div>
+</div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<nav class="navbar">
+  <div class="navbar-inner">
+    <button class="nav-btn" data-screen="setup" aria-current="true">
+      <svg viewBox="0 0 24 24"><path d="M4 20v-6M4 8V4M12 20v-9M12 5V4M20 20v-4M20 10V4M1 14h6M9 5h6M17 16h6"/></svg>
+      Setup
+    </button>
+    <button class="nav-btn" data-screen="notes" aria-current="false">
+      <svg viewBox="0 0 24 24"><path d="M4 4h13l3 3v13H4z"/><path d="M8 9h8M8 13h8M8 17h5"/></svg>
+      Notizen
+    </button>
+    <button class="nav-btn" data-screen="training" aria-current="false">
+      <svg viewBox="0 0 24 24"><path d="M9 11l2 2 4-4"/><path d="M5 4h14v16H5z"/><path d="M9 4V2h6v2"/></svg>
+      Training
+    </button>
+    <button class="nav-btn" data-screen="garage" aria-current="false">
+      <svg viewBox="0 0 24 24"><path d="M3 21V9l9-6 9 6v12"/><path d="M7 21v-7h10v7"/><path d="M7 17h10"/></svg>
+      Garage
+    </button>
+  </div>
+</nav>
+<script>
+"use strict";
+
+/* =====================================================================
+   MARKEN-THEMES
+   ===================================================================== */
+const BRANDS = {
+  stark:     {name:"Stark Future", tag:"Elektrisch",  accent:"#e8c14b", accent2:"#f7e0a0", ink:"#14120a"},
+  ktm:       {name:"KTM",          tag:"Ready to Race", accent:"#ff6b00", accent2:"#ff9d4d", ink:"#180800"},
+  husqvarna: {name:"Husqvarna",    tag:"Pioneering Since 1903", accent:"#eef1f4", accent2:"#ffd400", ink:"#101418"},
+  gasgas:    {name:"GASGAS",       tag:"Get on the Gas", accent:"#ff3b1f", accent2:"#ff7a5e", ink:"#1a0500"},
+  yamaha:    {name:"Yamaha",       tag:"Racing Blue",  accent:"#2f7bff", accent2:"#7fb0ff", ink:"#04102a"},
+  kawasaki:  {name:"Kawasaki",     tag:"Let the Good Times Roll", accent:"#5fc51c", accent2:"#93e05a", ink:"#08160a"},
+  honda:     {name:"Honda",        tag:"Red Riders",   accent:"#e2001a", accent2:"#ff5c6e", ink:"#1a0004"},
+  suzuki:    {name:"Suzuki",       tag:"Racing Yellow", accent:"#ffd400", accent2:"#ffe870", ink:"#1a1600"}
+};
+
+function hexToRgba(hex, a){
+  const n = parseInt(hex.slice(1),16);
+  return `rgba(${(n>>16)&255},${(n>>8)&255},${n&255},${a})`;
+}
+
+/* =====================================================================
+   SCREEN-THEMES
+   Nur "setup" folgt der Marke des gewählten Bikes.
+   Notizen, Training und Garage haben feste, eigene Farben.
+   ===================================================================== */
+const SCREEN_THEMES = {
+  setup:    null,  /* wird dynamisch aus BRANDS gesetzt */
+  notes:    {accent:"#3fb6e6", accent2:"#93d9f3", ink:"#03151d", glow:0.16},
+  training: {accent:"#57cf8c", accent2:"#9ee7bc", ink:"#04160d", glow:0.16},
+  garage:   {accent:"#a888f2", accent2:"#cbb5f8", ink:"#0d0722", glow:0.16}
+};
+
+/* Setzt die Akzent-Variablen auf ein beliebiges Element (Screen oder :root) */
+function paintTheme(target, t){
+  if (!t) return;
+  const s = target.style;
+  s.setProperty('--accent', t.accent);
+  s.setProperty('--accent-2', t.accent2);
+  s.setProperty('--accent-ink', t.ink);
+  s.setProperty('--accent-glow', hexToRgba(t.accent, t.glow ?? 0.20));
+  s.setProperty('--accent-soft', hexToRgba(t.accent, 0.10));
+}
+
+function activeScreenName(){
+  const el = document.querySelector(".screen.active");
+  return el ? el.id.replace("screen-","") : "setup";
+}
+
+/* Marke -> Theme nur für den Setup-Screen */
+function applyTheme(brandKey){
+  const b = BRANDS[brandKey];
+  SCREEN_THEMES.setup = {
+    accent: b.accent, accent2: b.accent2, ink: b.ink,
+    glow: brandKey === 'husqvarna' ? 0.10 : 0.20
+  };
+  const setupEl = document.getElementById("screen-setup");
+  if (setupEl) paintTheme(setupEl, SCREEN_THEMES.setup);
+  /* Topbar, Navbar, Toast und Hintergrund-Glow folgen dem sichtbaren Screen */
+  if (activeScreenName() === "setup") paintTheme(document.documentElement, SCREEN_THEMES.setup);
+}
+
+/* Feste Themes einmalig auf die übrigen Screens legen */
+function paintStaticScreenThemes(){
+  ["notes","training","garage"].forEach(n=>{
+    const el = document.getElementById("screen-" + n);
+    if (el) paintTheme(el, SCREEN_THEMES[n]);
+  });
+}
+
+/* =====================================================================
+   FAHRZEUG-DATENBANK
+   Werte = Richtwerte für aktuelle Modelljahre (ca. 2024–2026).
+   baseWeight = Gesamtgewicht Fahrer + Ausrüstung, für das die
+   Serienfeder bzw. der Serien-Luftdruck ausgelegt ist.
+   ===================================================================== */
+const TURN_WP     = {shock_hs_comp:{base:2,   max:3,   step:0.25}};
+const TURN_WPMINI = {shock_hs_comp:{base:1.5, max:2.5, step:0.25}};
+
+const CL = {
+  wpAir:   {fork_comp:12, fork_reb:15, shock_hs_comp:10, shock_ls_comp:15, shock_ls_reb:15, shock_hs_reb:10, max:30, turn:TURN_WP},
+  wpCoil:  {fork_comp:15, fork_reb:15, shock_hs_comp:10, shock_ls_comp:15, shock_ls_reb:15, shock_hs_reb:10, max:30, turn:TURN_WP},
+  wpMini:  {fork_comp:10, fork_reb:12, shock_hs_comp:8,  shock_ls_comp:12, shock_ls_reb:12, shock_hs_reb:8,  max:20, turn:TURN_WPMINI},
+  kyb:     {fork_comp:10, fork_reb:10, shock_hs_comp:10, shock_ls_comp:12, shock_ls_reb:10, shock_hs_reb:8,  max:22},
+  kybMini: {fork_comp:8,  fork_reb:8,  shock_hs_comp:8,  shock_ls_comp:10, shock_ls_reb:8,  shock_hs_reb:6,  max:18},
+  showa:   {fork_comp:9,  fork_reb:10, shock_hs_comp:10, shock_ls_comp:10, shock_ls_reb:10, shock_hs_reb:8,  max:20},
+  showaMini:{fork_comp:8, fork_reb:8,  shock_hs_comp:8,  shock_ls_comp:9,  shock_ls_reb:8,  shock_hs_reb:6,  max:18},
+  kayabaAOS:{fork_comp:12,fork_reb:10, shock_hs_comp:10, shock_ls_comp:12, shock_ls_reb:10, shock_hs_reb:8,  max:24}
+};
+
+const SAG = {
+  mx:    {stat:33, statR:"30–35 mm", rider:105, riderR:"103–107 mm"},
+  xc:    {stat:35, statR:"33–38 mm", rider:106, riderR:"104–108 mm"},
+  enduro:{stat:38, statR:"35–40 mm", rider:107, riderR:"105–110 mm"},
+  mini:  {stat:25, statR:"22–28 mm", rider:88,  riderR:"85–92 mm"}
+};
+
+/* =====================================================================
+   STARK VARG — WERKS-FEDERKLASSEN
+   Drei echte Federraten hinter sieben Bestellstufen. Die Klasse ist eine
+   Eigenschaft des Motorrads, keine Rechengröße: sie wird gewählt und
+   bleibt stehen, egal was auf der Waage steht.
+   ===================================================================== */
+const STARK_CLASSES = [
+  {upTo:75,  label:"65–75 kg",  shock:54, fork:4.6, desc:"Die weichste der drei Raten. Trail, technisches Enduro, leichte Fahrer."},
+  {upTo:85,  label:"75–85 kg",  shock:56, fork:4.8, desc:"Die mittlere Rate. Deckt den größten Teil der Fahrer ab."},
+  {upTo:999, label:"85–100 kg", shock:58, fork:5.0, desc:"Die härteste Rate. Schwere Fahrer, Renntempo, harte Landungen."}
+];
+const clampIdx = i => Math.max(0, Math.min(STARK_CLASSES.length - 1, i|0));
+
+/* Klasse, die zum Körpergewicht ohne Ausrüstung passt. Reine Empfehlung. */
+function starkClassIdx(bodyWeight){
+  const i = STARK_CLASSES.findIndex(c => bodyWeight <= c.upTo);
+  return i < 0 ? STARK_CLASSES.length - 1 : i;
+}
+
+// Kurzform-Konstruktor
+function B(o){
+  return Object.assign({forkKind:"spring", forkStep:0.1, shockStep:2, perKg:8, sag:"mx"}, o);
+}
+
+const BIKES = {
+  /* ---------------- STARK FUTURE ---------------- */
+  "stark-varg-mx": B({brand:"stark", name:"VARG MX", cat:"Motocross", susp:"Kayaba AOS 48 mm",
+    spec:[["Antrieb","Elektrisch"],["Leistung","60 / 80 PS"],["Gabel","Kayaba AOS 48 mm"],["Federweg","310 / 310 mm"]],
+    clicks:CL.kayabaAOS, sag:"mx", starkClasses:true,
+    classNote:"Stark bestellt die VARG nach Fahrergewicht ohne Ausrüstung und liefert sieben Bestellstufen von 65 bis 100 kg aus. Dahinter stecken nur drei echte Federraten. Welche davon in deinem Motorrad steckt, ändert sich nicht, wenn du zunimmst oder abnimmst: sie ist verbaut. Deshalb wählst du sie hier selbst aus."}),
+  "stark-varg-ex": B({brand:"stark", name:"VARG EX", cat:"Enduro", susp:"Kayaba AOS 48 mm",
+    spec:[["Antrieb","Elektrisch"],["Leistung","60 / 80 PS"],["Gabel","Kayaba AOS 48 mm"],["Federweg","310 / 310 mm"]],
+    clicks:CL.kayabaAOS, sag:"enduro", starkClasses:true,
+    classNote:"Die VARG EX ist ab Werk weicher abgestimmt als die MX, die Federraten und die Bestelllogik sind dieselben. Stark empfiehlt für überwiegenden Enduro-Einsatz bewusst eine Stufe unter dem eigenen Gewicht. Wenn du so bestellt hast, wähle hier genau diese Klasse, nicht die für dein Gewicht."}),
+
+  /* ---------------- KTM ---------------- */
+  "ktm-85sx":   B({brand:"ktm", name:"85 SX", cat:"Mini", susp:"WP Xact 43 mm Luft", forkKind:"air",
+    spec:[["Motor","85 cc 2T"],["Gabel","WP Xact 43 mm"],["Dämpfer","WP Xact"],["Federweg","270 / 290 mm"]],
+    base:8.4, shockBase:33, baseWeight:45, clicks:CL.wpMini, sag:"mini", forkStep:0.04, shockStep:1.5, perKg:6}),
+  "ktm-125sx":  B({brand:"ktm", name:"125 SX", cat:"Motocross", susp:"WP Xact 48 mm Luft", forkKind:"air",
+    spec:[["Motor","125 cc 2T"],["Gabel","WP Xact 48 mm Luft"],["Dämpfer","WP Xact"],["Federweg","310 / 300 mm"]],
+    base:10.4, shockBase:42, baseWeight:70, clicks:CL.wpAir}),
+  "ktm-150sx":  B({brand:"ktm", name:"150 SX", cat:"Motocross", susp:"WP Xact 48 mm Luft", forkKind:"air",
+    spec:[["Motor","144 cc 2T"],["Gabel","WP Xact 48 mm Luft"],["Dämpfer","WP Xact"],["Federweg","310 / 300 mm"]],
+    base:10.4, shockBase:42, baseWeight:72, clicks:CL.wpAir}),
+  "ktm-250sx":  B({brand:"ktm", name:"250 SX", cat:"Motocross", susp:"WP Xact 48 mm Luft", forkKind:"air",
+    spec:[["Motor","250 cc 2T"],["Gabel","WP Xact 48 mm Luft"],["Dämpfer","WP Xact"],["Federweg","310 / 300 mm"]],
+    base:10.6, shockBase:45, baseWeight:76, clicks:CL.wpAir}),
+  "ktm-300sx":  B({brand:"ktm", name:"300 SX", cat:"Motocross", susp:"WP Xact 48 mm Luft", forkKind:"air",
+    spec:[["Motor","300 cc 2T"],["Gabel","WP Xact 48 mm Luft"],["Dämpfer","WP Xact"],["Federweg","310 / 300 mm"]],
+    base:10.8, shockBase:45, baseWeight:78, clicks:CL.wpAir}),
+  "ktm-250sxf": B({brand:"ktm", name:"250 SX-F", cat:"Motocross", susp:"WP Xact 48 mm Luft", forkKind:"air",
+    spec:[["Motor","250 cc 4T"],["Gabel","WP Xact 48 mm Luft"],["Dämpfer","WP Xact"],["Federweg","310 / 300 mm"]],
+    base:10.8, shockBase:45, baseWeight:75, clicks:CL.wpAir}),
+  "ktm-350sxf": B({brand:"ktm", name:"350 SX-F", cat:"Motocross", susp:"WP Xact 48 mm Luft", forkKind:"air",
+    spec:[["Motor","350 cc 4T"],["Gabel","WP Xact 48 mm Luft"],["Dämpfer","WP Xact"],["Federweg","310 / 300 mm"]],
+    base:10.8, shockBase:45, baseWeight:77, clicks:CL.wpAir}),
+  "ktm-450sxf": B({brand:"ktm", name:"450 SX-F", cat:"Motocross", susp:"WP Xact 48 mm Luft", forkKind:"air",
+    spec:[["Motor","450 cc 4T"],["Gabel","WP Xact 48 mm Luft"],["Dämpfer","WP Xact"],["Federweg","310 / 300 mm"]],
+    base:11.0, shockBase:48, baseWeight:80, clicks:CL.wpAir}),
+  "ktm-250xc":  B({brand:"ktm", name:"250 XC", cat:"Cross-Country", susp:"WP Xact 48 mm Luft", forkKind:"air",
+    spec:[["Motor","250 cc 2T"],["Gabel","WP Xact 48 mm Luft"],["Dämpfer","WP Xact"],["Federweg","300 / 310 mm"]],
+    base:10.6, shockBase:45, baseWeight:76, clicks:CL.wpAir, sag:"xc"}),
+  "ktm-300xc":  B({brand:"ktm", name:"300 XC", cat:"Cross-Country", susp:"WP Xact 48 mm Luft", forkKind:"air",
+    spec:[["Motor","300 cc 2T"],["Gabel","WP Xact 48 mm Luft"],["Dämpfer","WP Xact"],["Federweg","300 / 310 mm"]],
+    base:10.7, shockBase:45, baseWeight:78, clicks:CL.wpAir, sag:"xc"}),
+  "ktm-250xcf": B({brand:"ktm", name:"250 XC-F", cat:"Cross-Country", susp:"WP Xact 48 mm Luft", forkKind:"air",
+    spec:[["Motor","250 cc 4T"],["Gabel","WP Xact 48 mm Luft"],["Dämpfer","WP Xact"],["Federweg","300 / 310 mm"]],
+    base:10.7, shockBase:45, baseWeight:75, clicks:CL.wpAir, sag:"xc"}),
+  "ktm-350xcf": B({brand:"ktm", name:"350 XC-F", cat:"Cross-Country", susp:"WP Xact 48 mm Luft", forkKind:"air",
+    spec:[["Motor","350 cc 4T"],["Gabel","WP Xact 48 mm Luft"],["Dämpfer","WP Xact"],["Federweg","300 / 310 mm"]],
+    base:10.8, shockBase:45, baseWeight:77, clicks:CL.wpAir, sag:"xc"}),
+  "ktm-450xcf": B({brand:"ktm", name:"450 XC-F", cat:"Cross-Country", susp:"WP Xact 48 mm Luft", forkKind:"air",
+    spec:[["Motor","450 cc 4T"],["Gabel","WP Xact 48 mm Luft"],["Dämpfer","WP Xact"],["Federweg","300 / 310 mm"]],
+    base:10.9, shockBase:48, baseWeight:80, clicks:CL.wpAir, sag:"xc"}),
+  "ktm-150exc": B({brand:"ktm", name:"150 EXC", cat:"Enduro", susp:"WP Xact 48 mm Feder",
+    spec:[["Motor","144 cc 2T"],["Gabel","WP Xact 48 mm Feder"],["Dämpfer","WP Xact"],["Federweg","300 / 310 mm"]],
+    base:4.0, shockBase:39, baseWeight:70, clicks:CL.wpCoil, sag:"enduro"}),
+  "ktm-250exc": B({brand:"ktm", name:"250 EXC", cat:"Enduro", susp:"WP Xact 48 mm Feder",
+    spec:[["Motor","250 cc 2T"],["Gabel","WP Xact 48 mm Feder"],["Dämpfer","WP Xact"],["Federweg","300 / 310 mm"]],
+    base:4.2, shockBase:42, baseWeight:75, clicks:CL.wpCoil, sag:"enduro"}),
+  "ktm-300exc": B({brand:"ktm", name:"300 EXC", cat:"Enduro", susp:"WP Xact 48 mm Feder",
+    spec:[["Motor","300 cc 2T"],["Gabel","WP Xact 48 mm Feder"],["Dämpfer","WP Xact"],["Federweg","300 / 310 mm"]],
+    base:4.2, shockBase:42, baseWeight:78, clicks:CL.wpCoil, sag:"enduro"}),
+  "ktm-250excf":B({brand:"ktm", name:"250 EXC-F", cat:"Enduro", susp:"WP Xact 48 mm Feder",
+    spec:[["Motor","250 cc 4T"],["Gabel","WP Xact 48 mm Feder"],["Dämpfer","WP Xact"],["Federweg","300 / 310 mm"]],
+    base:4.2, shockBase:42, baseWeight:75, clicks:CL.wpCoil, sag:"enduro"}),
+  "ktm-350excf":B({brand:"ktm", name:"350 EXC-F", cat:"Enduro", susp:"WP Xact 48 mm Feder",
+    spec:[["Motor","350 cc 4T"],["Gabel","WP Xact 48 mm Feder"],["Dämpfer","WP Xact"],["Federweg","300 / 310 mm"]],
+    base:4.2, shockBase:42, baseWeight:77, clicks:CL.wpCoil, sag:"enduro"}),
+  "ktm-450excf":B({brand:"ktm", name:"450 EXC-F", cat:"Enduro", susp:"WP Xact 48 mm Feder",
+    spec:[["Motor","450 cc 4T"],["Gabel","WP Xact 48 mm Feder"],["Dämpfer","WP Xact"],["Federweg","300 / 310 mm"]],
+    base:4.4, shockBase:45, baseWeight:80, clicks:CL.wpCoil, sag:"enduro"}),
+  "ktm-500excf":B({brand:"ktm", name:"500 EXC-F", cat:"Enduro", susp:"WP Xact 48 mm Feder",
+    spec:[["Motor","500 cc 4T"],["Gabel","WP Xact 48 mm Feder"],["Dämpfer","WP Xact"],["Federweg","300 / 310 mm"]],
+    base:4.4, shockBase:45, baseWeight:82, clicks:CL.wpCoil, sag:"enduro"}),
+
+  /* ---------------- HUSQVARNA ---------------- */
+  "hqv-tc85":  B({brand:"husqvarna", name:"TC 85", cat:"Mini", susp:"WP Xact 43 mm Luft", forkKind:"air",
+    spec:[["Motor","85 cc 2T"],["Gabel","WP Xact 43 mm"],["Dämpfer","WP Xact"],["Federweg","270 / 290 mm"]],
+    base:8.4, shockBase:33, baseWeight:45, clicks:CL.wpMini, sag:"mini", forkStep:0.04, shockStep:1.5, perKg:6}),
+  "hqv-tc125": B({brand:"husqvarna", name:"TC 125", cat:"Motocross", susp:"WP Xact 48 mm Luft", forkKind:"air",
+    spec:[["Motor","125 cc 2T"],["Gabel","WP Xact 48 mm Luft"],["Dämpfer","WP Xact"],["Federweg","310 / 300 mm"]],
+    base:10.4, shockBase:42, baseWeight:70, clicks:CL.wpAir}),
+  "hqv-tc250": B({brand:"husqvarna", name:"TC 250", cat:"Motocross", susp:"WP Xact 48 mm Luft", forkKind:"air",
+    spec:[["Motor","250 cc 2T"],["Gabel","WP Xact 48 mm Luft"],["Dämpfer","WP Xact"],["Federweg","310 / 300 mm"]],
+    base:10.6, shockBase:45, baseWeight:76, clicks:CL.wpAir}),
+  "hqv-fc250": B({brand:"husqvarna", name:"FC 250", cat:"Motocross", susp:"WP Xact 48 mm Luft", forkKind:"air",
+    spec:[["Motor","250 cc 4T"],["Gabel","WP Xact 48 mm Luft"],["Dämpfer","WP Xact"],["Federweg","310 / 300 mm"]],
+    base:10.8, shockBase:45, baseWeight:75, clicks:CL.wpAir}),
+  "hqv-fc350": B({brand:"husqvarna", name:"FC 350", cat:"Motocross", susp:"WP Xact 48 mm Luft", forkKind:"air",
+    spec:[["Motor","350 cc 4T"],["Gabel","WP Xact 48 mm Luft"],["Dämpfer","WP Xact"],["Federweg","310 / 300 mm"]],
+    base:10.8, shockBase:45, baseWeight:77, clicks:CL.wpAir}),
+  "hqv-fc450": B({brand:"husqvarna", name:"FC 450", cat:"Motocross", susp:"WP Xact 48 mm Luft", forkKind:"air",
+    spec:[["Motor","450 cc 4T"],["Gabel","WP Xact 48 mm Luft"],["Dämpfer","WP Xact"],["Federweg","310 / 300 mm"]],
+    base:11.0, shockBase:48, baseWeight:80, clicks:CL.wpAir}),
+  "hqv-tx300": B({brand:"husqvarna", name:"TX 300", cat:"Cross-Country", susp:"WP Xact 48 mm Luft", forkKind:"air",
+    spec:[["Motor","300 cc 2T"],["Gabel","WP Xact 48 mm Luft"],["Dämpfer","WP Xact"],["Federweg","300 / 310 mm"]],
+    base:10.7, shockBase:45, baseWeight:78, clicks:CL.wpAir, sag:"xc"}),
+  "hqv-fx350": B({brand:"husqvarna", name:"FX 350", cat:"Cross-Country", susp:"WP Xact 48 mm Luft", forkKind:"air",
+    spec:[["Motor","350 cc 4T"],["Gabel","WP Xact 48 mm Luft"],["Dämpfer","WP Xact"],["Federweg","300 / 310 mm"]],
+    base:10.8, shockBase:45, baseWeight:77, clicks:CL.wpAir, sag:"xc"}),
+  "hqv-fx450": B({brand:"husqvarna", name:"FX 450", cat:"Cross-Country", susp:"WP Xact 48 mm Luft", forkKind:"air",
+    spec:[["Motor","450 cc 4T"],["Gabel","WP Xact 48 mm Luft"],["Dämpfer","WP Xact"],["Federweg","300 / 310 mm"]],
+    base:10.9, shockBase:48, baseWeight:80, clicks:CL.wpAir, sag:"xc"}),
+  "hqv-te150": B({brand:"husqvarna", name:"TE 150", cat:"Enduro", susp:"WP Xact 48 mm Feder",
+    spec:[["Motor","144 cc 2T"],["Gabel","WP Xact 48 mm Feder"],["Dämpfer","WP Xact"],["Federweg","300 / 310 mm"]],
+    base:4.0, shockBase:39, baseWeight:70, clicks:CL.wpCoil, sag:"enduro"}),
+  "hqv-te250": B({brand:"husqvarna", name:"TE 250", cat:"Enduro", susp:"WP Xact 48 mm Feder",
+    spec:[["Motor","250 cc 2T"],["Gabel","WP Xact 48 mm Feder"],["Dämpfer","WP Xact"],["Federweg","300 / 310 mm"]],
+    base:4.2, shockBase:42, baseWeight:75, clicks:CL.wpCoil, sag:"enduro"}),
+  "hqv-te300": B({brand:"husqvarna", name:"TE 300", cat:"Enduro", susp:"WP Xact 48 mm Feder",
+    spec:[["Motor","300 cc 2T"],["Gabel","WP Xact 48 mm Feder"],["Dämpfer","WP Xact"],["Federweg","300 / 310 mm"]],
+    base:4.2, shockBase:42, baseWeight:78, clicks:CL.wpCoil, sag:"enduro"}),
+  "hqv-fe250": B({brand:"husqvarna", name:"FE 250", cat:"Enduro", susp:"WP Xact 48 mm Feder",
+    spec:[["Motor","250 cc 4T"],["Gabel","WP Xact 48 mm Feder"],["Dämpfer","WP Xact"],["Federweg","300 / 310 mm"]],
+    base:4.2, shockBase:42, baseWeight:75, clicks:CL.wpCoil, sag:"enduro"}),
+  "hqv-fe350": B({brand:"husqvarna", name:"FE 350", cat:"Enduro", susp:"WP Xact 48 mm Feder",
+    spec:[["Motor","350 cc 4T"],["Gabel","WP Xact 48 mm Feder"],["Dämpfer","WP Xact"],["Federweg","300 / 310 mm"]],
+    base:4.2, shockBase:42, baseWeight:77, clicks:CL.wpCoil, sag:"enduro"}),
+  "hqv-fe450": B({brand:"husqvarna", name:"FE 450", cat:"Enduro", susp:"WP Xact 48 mm Feder",
+    spec:[["Motor","450 cc 4T"],["Gabel","WP Xact 48 mm Feder"],["Dämpfer","WP Xact"],["Federweg","300 / 310 mm"]],
+    base:4.4, shockBase:45, baseWeight:80, clicks:CL.wpCoil, sag:"enduro"}),
+  "hqv-fe501": B({brand:"husqvarna", name:"FE 501", cat:"Enduro", susp:"WP Xact 48 mm Feder",
+    spec:[["Motor","511 cc 4T"],["Gabel","WP Xact 48 mm Feder"],["Dämpfer","WP Xact"],["Federweg","300 / 310 mm"]],
+    base:4.4, shockBase:45, baseWeight:82, clicks:CL.wpCoil, sag:"enduro"}),
+
+  /* ---------------- GASGAS ---------------- */
+  "gg-mc85":   B({brand:"gasgas", name:"MC 85", cat:"Mini", susp:"WP Xact 43 mm Luft", forkKind:"air",
+    spec:[["Motor","85 cc 2T"],["Gabel","WP Xact 43 mm"],["Dämpfer","WP Xact"],["Federweg","270 / 290 mm"]],
+    base:8.4, shockBase:33, baseWeight:45, clicks:CL.wpMini, sag:"mini", forkStep:0.04, shockStep:1.5, perKg:6}),
+  "gg-mc125":  B({brand:"gasgas", name:"MC 125", cat:"Motocross", susp:"WP Xact 48 mm Luft", forkKind:"air",
+    spec:[["Motor","125 cc 2T"],["Gabel","WP Xact 48 mm Luft"],["Dämpfer","WP Xact"],["Federweg","310 / 300 mm"]],
+    base:10.4, shockBase:42, baseWeight:70, clicks:CL.wpAir}),
+  "gg-mc250":  B({brand:"gasgas", name:"MC 250", cat:"Motocross", susp:"WP Xact 48 mm Luft", forkKind:"air",
+    spec:[["Motor","250 cc 2T"],["Gabel","WP Xact 48 mm Luft"],["Dämpfer","WP Xact"],["Federweg","310 / 300 mm"]],
+    base:10.6, shockBase:45, baseWeight:76, clicks:CL.wpAir}),
+  "gg-mc250f": B({brand:"gasgas", name:"MC 250F", cat:"Motocross", susp:"WP Xact 48 mm Luft", forkKind:"air",
+    spec:[["Motor","250 cc 4T"],["Gabel","WP Xact 48 mm Luft"],["Dämpfer","WP Xact"],["Federweg","310 / 300 mm"]],
+    base:10.8, shockBase:45, baseWeight:75, clicks:CL.wpAir}),
+  "gg-mc350f": B({brand:"gasgas", name:"MC 350F", cat:"Motocross", susp:"WP Xact 48 mm Luft", forkKind:"air",
+    spec:[["Motor","350 cc 4T"],["Gabel","WP Xact 48 mm Luft"],["Dämpfer","WP Xact"],["Federweg","310 / 300 mm"]],
+    base:10.8, shockBase:45, baseWeight:77, clicks:CL.wpAir}),
+  "gg-mc450f": B({brand:"gasgas", name:"MC 450F", cat:"Motocross", susp:"WP Xact 48 mm Luft", forkKind:"air",
+    spec:[["Motor","450 cc 4T"],["Gabel","WP Xact 48 mm Luft"],["Dämpfer","WP Xact"],["Federweg","310 / 300 mm"]],
+    base:11.0, shockBase:48, baseWeight:80, clicks:CL.wpAir}),
+  "gg-ex300":  B({brand:"gasgas", name:"EX 300", cat:"Cross-Country", susp:"WP Xact 48 mm Luft", forkKind:"air",
+    spec:[["Motor","300 cc 2T"],["Gabel","WP Xact 48 mm Luft"],["Dämpfer","WP Xact"],["Federweg","300 / 310 mm"]],
+    base:10.7, shockBase:45, baseWeight:78, clicks:CL.wpAir, sag:"xc"}),
+  "gg-ex350f": B({brand:"gasgas", name:"EX 350F", cat:"Cross-Country", susp:"WP Xact 48 mm Luft", forkKind:"air",
+    spec:[["Motor","350 cc 4T"],["Gabel","WP Xact 48 mm Luft"],["Dämpfer","WP Xact"],["Federweg","300 / 310 mm"]],
+    base:10.8, shockBase:45, baseWeight:77, clicks:CL.wpAir, sag:"xc"}),
+  "gg-ex450f": B({brand:"gasgas", name:"EX 450F", cat:"Cross-Country", susp:"WP Xact 48 mm Luft", forkKind:"air",
+    spec:[["Motor","450 cc 4T"],["Gabel","WP Xact 48 mm Luft"],["Dämpfer","WP Xact"],["Federweg","300 / 310 mm"]],
+    base:10.9, shockBase:48, baseWeight:80, clicks:CL.wpAir, sag:"xc"}),
+  "gg-ec250":  B({brand:"gasgas", name:"EC 250", cat:"Enduro", susp:"WP Xact 48 mm Feder",
+    spec:[["Motor","250 cc 2T"],["Gabel","WP Xact 48 mm Feder"],["Dämpfer","WP Xact"],["Federweg","300 / 310 mm"]],
+    base:4.2, shockBase:42, baseWeight:75, clicks:CL.wpCoil, sag:"enduro"}),
+  "gg-ec300":  B({brand:"gasgas", name:"EC 300", cat:"Enduro", susp:"WP Xact 48 mm Feder",
+    spec:[["Motor","300 cc 2T"],["Gabel","WP Xact 48 mm Feder"],["Dämpfer","WP Xact"],["Federweg","300 / 310 mm"]],
+    base:4.2, shockBase:42, baseWeight:78, clicks:CL.wpCoil, sag:"enduro"}),
+  "gg-ec250f": B({brand:"gasgas", name:"EC 250F", cat:"Enduro", susp:"WP Xact 48 mm Feder",
+    spec:[["Motor","250 cc 4T"],["Gabel","WP Xact 48 mm Feder"],["Dämpfer","WP Xact"],["Federweg","300 / 310 mm"]],
+    base:4.2, shockBase:42, baseWeight:75, clicks:CL.wpCoil, sag:"enduro"}),
+  "gg-ec350f": B({brand:"gasgas", name:"EC 350F", cat:"Enduro", susp:"WP Xact 48 mm Feder",
+    spec:[["Motor","350 cc 4T"],["Gabel","WP Xact 48 mm Feder"],["Dämpfer","WP Xact"],["Federweg","300 / 310 mm"]],
+    base:4.2, shockBase:42, baseWeight:77, clicks:CL.wpCoil, sag:"enduro"}),
+  "gg-ec450f": B({brand:"gasgas", name:"EC 450F", cat:"Enduro", susp:"WP Xact 48 mm Feder",
+    spec:[["Motor","450 cc 4T"],["Gabel","WP Xact 48 mm Feder"],["Dämpfer","WP Xact"],["Federweg","300 / 310 mm"]],
+    base:4.4, shockBase:45, baseWeight:80, clicks:CL.wpCoil, sag:"enduro"}),
+
+  /* ---------------- YAMAHA ---------------- */
+  "yam-yz85":   B({brand:"yamaha", name:"YZ85", cat:"Mini", susp:"KYB 36 mm",
+    spec:[["Motor","85 cc 2T"],["Gabel","KYB 36 mm"],["Dämpfer","KYB"],["Federweg","275 / 287 mm"]],
+    base:3.4, shockBase:30, baseWeight:45, clicks:CL.kybMini, sag:"mini", forkStep:0.05, shockStep:1.5, perKg:6}),
+  "yam-yz125":  B({brand:"yamaha", name:"YZ125", cat:"Motocross", susp:"KYB SSS 48 mm",
+    spec:[["Motor","125 cc 2T"],["Gabel","KYB SSS 48 mm"],["Dämpfer","KYB"],["Federweg","300 / 315 mm"]],
+    base:4.4, shockBase:48, baseWeight:70, clicks:CL.kyb}),
+  "yam-yz250":  B({brand:"yamaha", name:"YZ250", cat:"Motocross", susp:"KYB SSS 48 mm",
+    spec:[["Motor","250 cc 2T"],["Gabel","KYB SSS 48 mm"],["Dämpfer","KYB"],["Federweg","300 / 315 mm"]],
+    base:4.6, shockBase:50, baseWeight:76, clicks:CL.kyb}),
+  "yam-yz250f": B({brand:"yamaha", name:"YZ250F", cat:"Motocross", susp:"KYB SSS 48 mm",
+    spec:[["Motor","250 cc 4T"],["Gabel","KYB SSS 48 mm"],["Dämpfer","KYB"],["Federweg","310 / 314 mm"]],
+    base:4.7, shockBase:54, baseWeight:74, clicks:CL.kyb}),
+  "yam-yz450f": B({brand:"yamaha", name:"YZ450F", cat:"Motocross", susp:"KYB SSS 48 mm",
+    spec:[["Motor","450 cc 4T"],["Gabel","KYB SSS 48 mm"],["Dämpfer","KYB"],["Federweg","310 / 314 mm"]],
+    base:5.0, shockBase:56, baseWeight:82, clicks:CL.kyb}),
+  "yam-yz125x": B({brand:"yamaha", name:"YZ125X", cat:"Cross-Country", susp:"KYB SSS 48 mm",
+    spec:[["Motor","125 cc 2T"],["Gabel","KYB SSS 48 mm"],["Dämpfer","KYB"],["Federweg","300 / 315 mm"]],
+    base:4.3, shockBase:46, baseWeight:70, clicks:CL.kyb, sag:"xc"}),
+  "yam-yz250x": B({brand:"yamaha", name:"YZ250X", cat:"Cross-Country", susp:"KYB SSS 48 mm",
+    spec:[["Motor","250 cc 2T"],["Gabel","KYB SSS 48 mm"],["Dämpfer","KYB"],["Federweg","300 / 315 mm"]],
+    base:4.4, shockBase:48, baseWeight:76, clicks:CL.kyb, sag:"xc"}),
+  "yam-yz250fx":B({brand:"yamaha", name:"YZ250FX", cat:"Cross-Country", susp:"KYB SSS 48 mm",
+    spec:[["Motor","250 cc 4T"],["Gabel","KYB SSS 48 mm"],["Dämpfer","KYB"],["Federweg","310 / 317 mm"]],
+    base:4.6, shockBase:52, baseWeight:76, clicks:CL.kyb, sag:"xc"}),
+  "yam-yz450fx":B({brand:"yamaha", name:"YZ450FX", cat:"Cross-Country", susp:"KYB SSS 48 mm",
+    spec:[["Motor","450 cc 4T"],["Gabel","KYB SSS 48 mm"],["Dämpfer","KYB"],["Federweg","310 / 317 mm"]],
+    base:4.9, shockBase:54, baseWeight:82, clicks:CL.kyb, sag:"xc"}),
+  "yam-wr250f": B({brand:"yamaha", name:"WR250F", cat:"Enduro", susp:"KYB SSS 48 mm",
+    spec:[["Motor","250 cc 4T"],["Gabel","KYB SSS 48 mm"],["Dämpfer","KYB"],["Federweg","310 / 317 mm"]],
+    base:4.5, shockBase:50, baseWeight:76, clicks:CL.kyb, sag:"enduro"}),
+  "yam-wr450f": B({brand:"yamaha", name:"WR450F", cat:"Enduro", susp:"KYB SSS 48 mm",
+    spec:[["Motor","450 cc 4T"],["Gabel","KYB SSS 48 mm"],["Dämpfer","KYB"],["Federweg","310 / 317 mm"]],
+    base:4.8, shockBase:52, baseWeight:82, clicks:CL.kyb, sag:"enduro"}),
+
+  /* ---------------- KAWASAKI ---------------- */
+  "kaw-kx65":  B({brand:"kawasaki", name:"KX65", cat:"Mini", susp:"KYB 33 mm",
+    spec:[["Motor","65 cc 2T"],["Gabel","KYB 33 mm"],["Dämpfer","KYB Uni-Trak"],["Federweg","215 / 270 mm"]],
+    base:2.6, shockBase:26, baseWeight:32, clicks:CL.kybMini, sag:"mini", forkStep:0.05, shockStep:1.2, perKg:5}),
+  "kaw-kx85":  B({brand:"kawasaki", name:"KX85", cat:"Mini", susp:"KYB 36 mm",
+    spec:[["Motor","85 cc 2T"],["Gabel","KYB 36 mm"],["Dämpfer","KYB Uni-Trak"],["Federweg","275 / 287 mm"]],
+    base:3.4, shockBase:30, baseWeight:45, clicks:CL.kybMini, sag:"mini", forkStep:0.05, shockStep:1.5, perKg:6}),
+  "kaw-kx112": B({brand:"kawasaki", name:"KX112", cat:"Mini", susp:"KYB 36 mm",
+    spec:[["Motor","112 cc 2T"],["Gabel","KYB 36 mm"],["Dämpfer","KYB Uni-Trak"],["Federweg","275 / 287 mm"]],
+    base:3.6, shockBase:32, baseWeight:48, clicks:CL.kybMini, sag:"mini", forkStep:0.05, shockStep:1.5, perKg:6}),
+  "kaw-kx250": B({brand:"kawasaki", name:"KX250", cat:"Motocross", susp:"Showa 49 mm",
+    spec:[["Motor","250 cc 4T"],["Gabel","Showa 49 mm"],["Dämpfer","Showa Uni-Trak"],["Federweg","310 / 315 mm"]],
+    base:4.7, shockBase:54, baseWeight:75, clicks:CL.showa}),
+  "kaw-kx450": B({brand:"kawasaki", name:"KX450", cat:"Motocross", susp:"Showa 49 mm",
+    spec:[["Motor","450 cc 4T"],["Gabel","Showa 49 mm"],["Dämpfer","Showa Uni-Trak"],["Federweg","310 / 315 mm"]],
+    base:5.0, shockBase:56, baseWeight:82, clicks:CL.showa}),
+  "kaw-kx250x":B({brand:"kawasaki", name:"KX250X", cat:"Cross-Country", susp:"Showa 49 mm",
+    spec:[["Motor","250 cc 4T"],["Gabel","Showa 49 mm"],["Dämpfer","Showa Uni-Trak"],["Federweg","310 / 315 mm"]],
+    base:4.6, shockBase:52, baseWeight:76, clicks:CL.showa, sag:"xc"}),
+  "kaw-kx450x":B({brand:"kawasaki", name:"KX450X", cat:"Cross-Country", susp:"Showa 49 mm",
+    spec:[["Motor","450 cc 4T"],["Gabel","Showa 49 mm"],["Dämpfer","Showa Uni-Trak"],["Federweg","310 / 315 mm"]],
+    base:4.9, shockBase:54, baseWeight:82, clicks:CL.showa, sag:"xc"}),
+
+  /* ---------------- HONDA ---------------- */
+  "hon-crf150r":B({brand:"honda", name:"CRF150R", cat:"Mini", susp:"Showa 37 mm",
+    spec:[["Motor","150 cc 4T"],["Gabel","Showa 37 mm"],["Dämpfer","Showa Pro-Link"],["Federweg","270 / 279 mm"]],
+    base:3.6, shockBase:32, baseWeight:50, clicks:CL.showaMini, sag:"mini", forkStep:0.05, shockStep:1.5, perKg:6}),
+  "hon-crf250r":B({brand:"honda", name:"CRF250R", cat:"Motocross", susp:"Showa 49 mm",
+    spec:[["Motor","250 cc 4T"],["Gabel","Showa 49 mm"],["Dämpfer","Showa Pro-Link"],["Federweg","310 / 313 mm"]],
+    base:4.7, shockBase:52, baseWeight:74, clicks:CL.showa}),
+  "hon-crf450r":B({brand:"honda", name:"CRF450R", cat:"Motocross", susp:"Showa 49 mm",
+    spec:[["Motor","450 cc 4T"],["Gabel","Showa 49 mm"],["Dämpfer","Showa Pro-Link"],["Federweg","310 / 313 mm"]],
+    base:4.9, shockBase:54, baseWeight:82, clicks:CL.showa}),
+  "hon-crf450rwe":B({brand:"honda", name:"CRF450RWE", cat:"Motocross", susp:"Showa 49 mm A-Kit",
+    spec:[["Motor","450 cc 4T"],["Gabel","Showa 49 mm A-Kit"],["Dämpfer","Showa Pro-Link"],["Federweg","310 / 313 mm"]],
+    base:4.9, shockBase:54, baseWeight:82, clicks:CL.showa}),
+  "hon-crf250rx":B({brand:"honda", name:"CRF250RX", cat:"Cross-Country", susp:"Showa 49 mm",
+    spec:[["Motor","250 cc 4T"],["Gabel","Showa 49 mm"],["Dämpfer","Showa Pro-Link"],["Federweg","310 / 313 mm"]],
+    base:4.6, shockBase:50, baseWeight:76, clicks:CL.showa, sag:"xc"}),
+  "hon-crf450rx":B({brand:"honda", name:"CRF450RX", cat:"Cross-Country", susp:"Showa 49 mm",
+    spec:[["Motor","450 cc 4T"],["Gabel","Showa 49 mm"],["Dämpfer","Showa Pro-Link"],["Federweg","310 / 313 mm"]],
+    base:4.8, shockBase:52, baseWeight:82, clicks:CL.showa, sag:"xc"}),
+
+  /* ---------------- SUZUKI ---------------- */
+  "suz-rm85":  B({brand:"suzuki", name:"RM85", cat:"Mini", susp:"KYB 37 mm",
+    spec:[["Motor","85 cc 2T"],["Gabel","KYB 37 mm"],["Dämpfer","KYB"],["Federweg","275 / 285 mm"]],
+    base:3.3, shockBase:30, baseWeight:45, clicks:CL.kybMini, sag:"mini", forkStep:0.05, shockStep:1.5, perKg:6}),
+  "suz-rmz250":B({brand:"suzuki", name:"RM-Z250", cat:"Motocross", susp:"Showa 49 mm",
+    spec:[["Motor","250 cc 4T"],["Gabel","Showa 49 mm"],["Dämpfer","Showa"],["Federweg","310 / 315 mm"]],
+    base:4.6, shockBase:52, baseWeight:74, clicks:CL.showa}),
+  "suz-rmz450":B({brand:"suzuki", name:"RM-Z450", cat:"Motocross", susp:"Showa 49 mm",
+    spec:[["Motor","450 cc 4T"],["Gabel","Showa 49 mm"],["Dämpfer","Showa"],["Federweg","305 / 312 mm"]],
+    base:4.9, shockBase:54, baseWeight:82, clicks:CL.showa})
+};
+
+
+const CAT_ORDER = ["Motocross","Cross-Country","Enduro","Mini"];
+
+/* =====================================================================
+   BERECHNUNG
+   ===================================================================== */
+const clamp = (v,lo,hi)=>Math.max(lo,Math.min(hi,v));
+const r1 = v=>Math.round(v*10)/10;
+const r2 = v=>Math.round(v*100)/100;
+
+function unitMeta(clicks, key){
+  const t = clicks.turn && clicks.turn[key];
+  return t
+    ? {unit:"turn",  base:t.base,      max:t.max,      step:t.step, min:t.step}
+    : {unit:"click", base:clicks[key], max:clicks.max, step:1,      min:0};
+}
+const snapStep = (v, step) => r2(Math.round(v / step) * step);
+const numq = v => de(Number.isInteger(v) ? String(v) : String(r2(v)));
+const unitName = (u, v) => u.unit === "turn"
+  ? (Math.abs(v) === 1 ? "Umdrehung" : "Umdrehungen")
+  : (Math.abs(v) === 1 ? "Klick" : "Klicks");
+
+const de   = s => String(s).replace(".", ",");
+const fmt1 = v => de(Number(v).toFixed(1));
+const num  = v => de(Number.isInteger(v) ? v : r1(v).toFixed(1));
+
+const snapTo = (v, step, anchor) => r1(anchor + Math.round((v - anchor) / step) * step);
+const forkGrid  = bike => bike.forkKind === "air" ? 0.1 : bike.forkStep;
+const shockGrid = bike => bike.shockStep;
+const isAirFork = bike => bike.forkKind === "air";
+
+function weightRange(bike){
+  if (bike.starkClasses) return {min:50, max:118};
+  return {min: Math.round(bike.baseWeight - bike.perKg*2.5),
+          max: Math.round(bike.baseWeight + bike.perKg*3)};
+}
+function weightWarning(bike, totalW){
+  const wr = weightRange(bike);
+  if (totalW >= wr.min && totalW <= wr.max) return "";
+  const dir = totalW < wr.min ? "unter" : "über";
+  return `Gesamtgewicht ${fmt1(totalW)} kg liegt ${dir} der Auslegung dieses Modells `
+       + `(${wr.min}–${wr.max} kg). Die Raten sind am Rand des lieferbaren Bereichs gekappt. `
+       + `Für dieses Gewicht braucht es eine Sonderfeder, kein Klicker der Welt gleicht das aus.`;
+}
+
+const SKILL_DELTA = {"Anfänger":4,"Hobbyfahrer":0,"Fortgeschritten":-2,"Experte":-4,"Profi":-6};
+const STYLE_DELTA = {flowing:2, neutral:0, aggressive:-2};
+const SKILLS = ["Anfänger","Hobbyfahrer","Fortgeschritten","Experte","Profi"];
+const STYLES = {flowing:"Flüssig, ruhig", neutral:"Neutral", aggressive:"Aggressiv, spät bremsend"};
+
+const SURFACES = {
+  hard:{label:"Hartboden"}, mixed:{label:"Mischboden"}, loam:{label:"Lehm / Loam"},
+  sand:{label:"Sand"}, deepsand:{label:"Tiefsand"}, mud:{label:"Schlamm"},
+  rocky:{label:"Steine & Wurzeln"}, gravel:{label:"Schotter / Kies"}
+};
+const CONDITIONS = {fresh:"Frisch präpariert", broken:"Eingefahren", rutted:"Stark ausgefahren, tiefe Rillen", blueGroove:"Hart & ausgewaschen (Blue Groove)"};
+const MOISTURE = {dry:"Staubtrocken", tacky:"Leicht gewässert", wet:"Nass"};
+const PROFILES = {flat:"Flach", rolling:"Hügelig", steep:"Bergig & steil"};
+const TEMPS = {cold:"Kalt (unter 10 °C)", mild:"Gemäßigt (10–28 °C)", hot:"Heiß (über 28 °C)"};
+const DURATIONS = {sprint:"Sprint / Training, unter 15 min", race:"Rennen, 20–40 min", long:"Langstrecke, über 1 h"};
+
+const FEATURES = [
+  {id:"bigJumps",   label:"Große Sprünge"},
+  {id:"flatLand",   label:"Flache Landungen"},
+  {id:"rhythm",     label:"Sprungserien"},
+  {id:"tightTurns", label:"Enge Kurven"},
+  {id:"berms",      label:"Steilkurven"},
+  {id:"whoops",     label:"Tiefe Wellen"},
+  {id:"brakeBumps", label:"Bremswellen"},
+  {id:"rootsRocks", label:"Wurzeln & Steine"},
+  {id:"fastStraights", label:"Schnelle Geraden"},
+  {id:"offCamber",  label:"Off-Camber"},
+  {id:"hillClimb",  label:"Steile Auffahrten"}
+];
+
+const KEYS = ["fork_comp","fork_reb","shock_hs_comp","shock_ls_comp","shock_ls_reb","shock_hs_reb"];
+const CLICK_LABELS = {
+  fork_comp:"Druckstufe",
+  fork_reb:"Zugstufe",
+  shock_hs_comp:"High-Speed Druckstufe",
+  shock_ls_comp:"Low-Speed Druckstufe",
+  shock_ls_reb:"Low-Speed Zugstufe",
+  shock_hs_reb:"High-Speed Zugstufe"
+};
+
+/* ---- ZIEL-Federraten: was für dieses Gesamtgewicht passt ---- */
+function targetSprings(bike, totalW, bodyWeight){
+  if (bike.starkClasses){
+    const idx = starkClassIdx(bodyWeight);
+    const c = STARK_CLASSES[idx];
+    return {fork:c.fork, shock:c.shock, classIdx:idx};
+  }
+  const raw = Math.round((totalW - bike.baseWeight) / bike.perKg);
+  const steps = clamp(raw, -6, 8);
+  const shock = r1(bike.shockBase + steps * bike.shockStep);
+  let fork;
+  if (isAirFork(bike)){
+    fork = bike.base + (totalW - bike.baseWeight) * (bike.forkStep === 0.04 ? 0.05 : 0.03);
+    fork = snapTo(clamp(fork, bike.base - 1.2, bike.base + 1.4), 0.1, bike.base);
+  } else {
+    fork = r1(bike.base + steps * bike.forkStep);
+  }
+  return {fork, shock, classIdx:null};
+}
+
+/* ---- VERBAUTE Federraten: was tatsächlich im Motorrad steckt ----
+   Diese Werte rechnet die App nie selbst um. Sie stehen so, wie der
+   Fahrer sie im Schritt „Verbautes Fahrwerk" angegeben hat.          */
+function installedSprings(bike, s, target){
+  if (bike.starkClasses){
+    const i = clampIdx(s.starkClass == null ? target.classIdx : s.starkClass);
+    const c = STARK_CLASSES[i];
+    return {fork:c.fork, shock:c.shock, classIdx:i, label:c.label};
+  }
+  if (s.springChoice === "target") return {fork:target.fork, shock:target.shock, classIdx:null};
+  if (s.springChoice === "custom"){
+    return {
+      fork:  isAirFork(bike) ? target.fork : (s.customFork  > 0 ? r2(s.customFork)  : bike.base),
+      shock: s.customShock > 0 ? r1(s.customShock) : bike.shockBase,
+      classIdx:null
+    };
+  }
+  return {fork: isAirFork(bike) ? target.fork : bike.base, shock: bike.shockBase, classIdx:null};
+}
+
+/* Urteil: passt die verbaute Feder zum Gewicht? */
+function springVerdict(bike, inst, target){
+  if (bike.starkClasses){
+    const d = inst.classIdx - target.classIdx;
+    if (d === 0) return {level:"ok", text:`Die verbaute Klasse ${STARK_CLASSES[inst.classIdx].label} ist genau die, die Stark für dein Körpergewicht vorsieht. Federn bleiben drin, alles Weitere läuft über Vorspannung und Klicker.`};
+    const n = Math.abs(d);
+    const dir = d < 0 ? "weicher" : "härter";
+    const soft = d < 0
+      ? "Das ist Starks eigene Empfehlung für überwiegenden Enduro- und Trail-Einsatz. Auf Motocross im Renntempo fehlt am Ende des Federwegs Reserve: Vorspannung etwas höher, High-Speed-Druckstufe hinten eine Stufe fester."
+      : "Sinnvoll bei Renntempo, harten Landungen oder viel Gepäck. Im langsamen Gelände fehlt Grip: Low-Speed-Druckstufen eine Stufe weiter öffnen.";
+    return {level:"warn", text:`Verbaut ist ${n === 1 ? "eine Klasse" : n + " Klassen"} ${dir} als die für dein Körpergewicht. ${soft}`};
+  }
+  const dShock = r1(target.shock - inst.shock);
+  const dFork  = r2(target.fork - inst.fork);
+  const parts = [];
+  let level = "ok";
+
+  if (Math.abs(dShock) >= bike.shockStep){
+    level = "warn";
+    parts.push(`Federbein: verbaut ${num(inst.shock)} N/mm, rechnerisch passend wären ${num(target.shock)} N/mm. `
+      + `Das sind ${num(Math.abs(dShock))} N/mm ${dShock > 0 ? "zu weich" : "zu hart"} für dein Gesamtgewicht. `
+      + `Ab etwa einem Katalogschritt Abweichung lohnt der Federtausch, weil die Vorspannung sonst den statischen Sag verbiegt.`);
+  }
+  if (!isAirFork(bike) && Math.abs(dFork) >= 0.2){
+    level = "warn";
+    parts.push(`Gabel: verbaut ${fmt1(inst.fork)} N/mm, passend wären ${fmt1(target.fork)} N/mm. `
+      + `${dFork > 0 ? "Zu weich: die Front taucht beim Bremsen zu tief." : "Zu hart: das Vorderrad findet keinen Grip und prallt ab."}`);
+  }
+  if (isAirFork(bike)){
+    parts.push(`Die Gabel ist eine Luftgabel. Statt einer Feder stellst du ${fmt1(target.fork)} bar ein, kalt und immer mit demselben Manometer.`);
+  }
+  if (!parts.length) return {level:"ok", text:"Die verbauten Federn passen zu deinem Gesamtgewicht. Alles Weitere läuft über Vorspannung und Klicker."};
+  return {level, text:parts.join(" ")};
+}
+
+function calcSag(bike, surface, f, profile){
+  const p = SAG[bike.sag];
+  let stat = p.stat, statR = p.statR, rider = p.rider, riderR = p.riderR;
+  if (surface === "sand" || surface === "deepsand"){
+    rider = p.rider + 1;
+    riderR = "etwas mehr Sag: Heck taucht ein, Front bleibt entlastet";
+  } else if (f.tightTurns){
+    rider = p.rider - 2;
+    riderR = "weniger Sag: Gewicht nach vorn, williger einlenkend";
+  }
+  if (profile === "steep") { stat = p.stat + 2; statR = "etwas mehr statischer Sag für Traktion bergauf"; }
+  return {stat, statR, rider, riderR};
+}
+
+function calcGeometry(bike, surface, f){
+  let mm = 5, note = "Neutraler Ausgangswert, ausgewogenes Handling.";
+  if (surface === "deepsand"){ mm = 0; note = "Bündig. Maximale Geradeauslauf-Stabilität im weichen Untergrund."; }
+  else if (surface === "sand"){ mm = 2; note = "Fast bündig. Stabilität geht vor Einlenkschärfe."; }
+  else if (surface === "hard" && f.tightTurns){ mm = 8; note = "Weit durchgesteckt. Maximale Einlenkschärfe auf hartem, kurvigem Kurs."; }
+  else if (surface === "hard"){ mm = 6; note = "Etwas durchgesteckt für mehr Lenkpräzision auf Hartboden."; }
+  else if (surface === "rocky" || surface === "gravel"){ mm = 3; note = "Wenig durchgesteckt. Ruhige Front über Steinfelder."; }
+  else if (surface === "mud"){ mm = 4; note = "Leicht durchgesteckt, ohne Stabilität aufzugeben."; }
+  if (f.fastStraights && mm > 3){ mm -= 2; note += " Wegen der schnellen Geraden 2 mm zurückgenommen."; }
+  mm = clamp(mm, 0, 10);
+  const steer = mm >= 7 ? "Sehr direkt" : mm >= 4 ? "Ausgewogen" : "Stabil";
+  return {mm, note, steer};
+}
+
+function calcClickers(bike, skill, style, surface, condition, moisture, profile, temp, duration, f){
+  const base = bike.clicks, max = base.max;
+  /* terr = gezielte Geländeforderungen, bias = globale Vorspannung
+     (Können/Stil/Temperatur/Dauer). pos/neg pro Klicker, um echte
+     Zielkonflikte zu erkennen. */
+  const terr = {}, bias = {}, pos = {}, neg = {};
+  KEYS.forEach(k => { terr[k]=0; bias[k]=0; pos[k]=0; neg[k]=0; });
+  const reasons = [];
+  const flags = [];
+  const add = (title, text, changes, kind)=>{
+    Object.entries(changes).forEach(([k,v]) => {
+      if (kind === "bias") { bias[k] += v; }
+      else { terr[k] += v; if (v > 0) pos[k] += v; else neg[k] += v; }
+    });
+    reasons.push({title, text});
+  };
+  const all = n => Object.fromEntries(KEYS.map(k=>[k,n]));
+
+  const sd = SKILL_DELTA[skill] || 0;
+  if (sd) add("Fahrkönnen: " + skill,
+    sd > 0 ? "Gesamtes Setup weicher und gutmütiger, damit das Fahrwerk verzeiht."
+           : "Gesamtes Setup straffer und direkter, damit es bei Renntempo nicht durchsackt.",
+    all(sd), "bias");
+
+  const st = STYLE_DELTA[style] || 0;
+  if (st) add("Fahrstil",
+    st > 0 ? "Flüssiger Stil belastet das Fahrwerk weniger, daher etwas mehr Komfort."
+           : "Aggressiver Stil mit späten Bremspunkten braucht mehr Reserve gegen Durchschlagen.",
+    all(st), "bias");
+
+  if (surface === "deepsand")
+    add("Untergrund: Tiefsand", "Druckstufen deutlich fester, Zugstufen langsamer. Verhindert Eintauchen und Aufschaukeln in der Sandspur.",
+      {fork_comp:-3, fork_reb:-2, shock_ls_comp:-1, shock_hs_comp:-2, shock_ls_reb:-2, shock_hs_reb:-2});
+  else if (surface === "sand")
+    add("Untergrund: Sand", "Gabel etwas fester, Zugstufen leicht verlangsamt für mehr Ruhe im weichen Boden.",
+      {fork_comp:-2, fork_reb:-1, shock_ls_reb:-1});
+  else if (surface === "mud")
+    add("Untergrund: Schlamm", "Offenere Druckstufen. Das Rad soll dem Boden folgen und Grip suchen statt darüber zu springen.",
+      {fork_comp:2, shock_ls_comp:2});
+  else if (surface === "rocky")
+    add("Untergrund: Steine & Wurzeln", "Low-Speed weich für Grip, High-Speed fest gegen Durchschläge an scharfen Kanten.",
+      {fork_comp:2, shock_ls_comp:2, shock_hs_comp:-1});
+  else if (surface === "gravel")
+    add("Untergrund: Schotter", "Etwas mehr Nachgiebigkeit, damit die Räder nicht auf der losen Decke springen.",
+      {fork_comp:1, shock_ls_comp:1});
+  else if (surface === "hard")
+    add("Untergrund: Hartboden", "Druckstufen leicht geöffnet. Auf hartem Boden entsteht Traktion durch Nachgiebigkeit.",
+      {fork_comp:1, shock_ls_comp:1});
+  else if (surface === "loam")
+    add("Untergrund: Lehm", "Guter Grip von Natur aus. Nur minimal weicher für Feingefühl beim Einlenken.",
+      {fork_comp:1});
+
+  if (condition === "rutted")
+    add("Zustand: Stark ausgefahren", "Tiefe Rillen und Kanten. Low-Speed offener für Komfort, Zugstufe langsamer, damit das Heck nicht auskickt.",
+      {fork_comp:1, shock_ls_comp:1, shock_ls_reb:-1});
+  else if (condition === "blueGroove")
+    add("Zustand: Hart & ausgewaschen", "Auf Blue Groove ist Grip die einzige Währung. Beide Druckstufen weiter geöffnet.",
+      {fork_comp:2, shock_ls_comp:2});
+  else if (condition === "fresh")
+    add("Zustand: Frisch präpariert", "Weicher, griffiger Boden. Setup bleibt am Basiswert, Traktion ist ohnehin da.", {});
+
+  if (moisture === "dry")
+    add("Bodenfeuchte: Staubtrocken", "Trockener, harter Boden bietet wenig Grip. Druckstufen leicht geöffnet.",
+      {fork_comp:1, shock_ls_comp:1});
+  else if (moisture === "wet")
+    add("Bodenfeuchte: Nass", "Nasser Boden verlangt maximales Anschmiegen. Low-Speed deutlich weicher.",
+      {fork_comp:1, shock_ls_comp:2});
+
+  if (profile === "steep")
+    add("Profil: Bergig & steil", "Beim Bergauffahren muss das Heck einfedern und Traktion aufbauen, bergab darf es nicht springen.",
+      {shock_ls_comp:1, shock_hs_reb:-1});
+
+  if (temp === "cold")
+    add("Temperatur: Kalt", "Kaltes Öl dämpft stärker. Alle Klicker weiter aufgedreht, sonst wirkt das Fahrwerk bockig.", all(2), "bias");
+  else if (temp === "hot")
+    add("Temperatur: Heiß", "Warmes Öl dämpft schwächer. Klicker etwas zugedreht, um die Dämpfung zu halten.", all(-1), "bias");
+
+  if (duration === "long")
+    add("Fahrdauer: Langstrecke", "Bei langen Fahrten zählt Ermüdungsarmut mehr als letzte Zehntel. Alles eine Stufe offener.", all(1), "bias");
+  else if (duration === "sprint")
+    add("Fahrdauer: Sprint", "Kurze harte Belastung. Heck-High-Speed eine Stufe fester.", {shock_hs_comp:-1});
+
+  if (f.bigJumps)
+    add("Große Sprünge", "High-Speed-Druckstufe hinten als Durchschlagschutz bei Landungen.", {shock_hs_comp:-2, fork_comp:-1});
+  if (f.flatLand)
+    add("Flache Landungen", "Wenig Landeschräge heißt volle Energie ins Fahrwerk. Beide Druckstufen deutlich fester.", {fork_comp:-2, shock_hs_comp:-2});
+  if (f.rhythm)
+    add("Sprungserien", "Zugstufen langsamer, damit das Rad zwischen den Sprüngen nicht aufschaukelt.", {fork_reb:-1, shock_ls_reb:-1});
+  if (f.tightTurns)
+    add("Enge Kurven", "Gabel-Druckstufe minimal weicher. Die Front taucht beim Einlenken sauber ein.", {fork_comp:1});
+  if (f.berms)
+    add("Steilkurven", "In Anliegern soll das Heck ins Federbein sacken und Grip aufbauen.", {shock_ls_comp:1});
+  if (f.whoops)
+    add("Tiefe Wellen", "Gabel straffer gegen Durchschlagen in der Wellenserie, Zugstufe langsamer gegen Aufschaukeln.", {fork_comp:-1, fork_reb:-1});
+  if (f.brakeBumps)
+    add("Bremswellen", "Gabel muss schnell zurückkommen, sonst arbeitet sie sich nach unten. Zugstufe schneller.", {fork_reb:2, fork_comp:1});
+  if (f.rootsRocks)
+    add("Wurzeln & Steine", "Low-Speed offener, damit das Vorderrad über Kanten klettert statt abzuprallen.", {fork_comp:2, shock_ls_comp:1});
+  if (f.fastStraights)
+    add("Schnelle Geraden", "High-Speed vorne und hinten fester. Verhindert Nicken bei Speed.", {shock_hs_comp:-1, shock_hs_reb:-1});
+  if (f.offCamber)
+    add("Off-Camber", "Weichere Gabel für Seitenführung auf schrägem Untergrund.", {fork_comp:1});
+  if (f.hillClimb)
+    add("Steile Auffahrten", "Heck weicher, damit das Hinterrad beim Beschleunigen bergauf Druck aufbaut.", {shock_ls_comp:1, shock_ls_reb:1});
+
+  /* =====================================================================
+     STABILITÄTS- & KOMPROMISS-STUFE
+     1) Globale Vorspannung pro Klicker auf ±BIAS_CAP begrenzen, damit
+        Können+Kälte+Stil+Dauer das Setup nicht gemeinsam ans Limit treiben.
+     2) Summe sanft sättigen: bis ±KNEE unverändert, darüber mit abnehmender
+        Wirkung. Kein Wert kann so „davonlaufen".
+     3) Kopplungsregeln prüfen, ob Druck- und Zugstufe zusammen ein packendes
+        oder aufschaukelndes Fahrwerk ergeben, und korrigieren + melden.
+     4) Echte Zielkonflikte und Hardware-Anschläge werden ausgewiesen statt
+        stumm zu einem krummen Wert zu verrechnen.
+     ===================================================================== */
+  const BIAS_CAP = 4, KNEE = 4, TAIL = 3;
+  const soften = x => {
+    const a = Math.abs(x);
+    return a <= KNEE ? x : Math.sign(x) * (KNEE + TAIL * (1 - Math.exp(-(a - KNEE) / TAIL)));
+  };
+  const chatter = !!(f.whoops || f.brakeBumps || f.rootsRocks || f.rhythm || condition === "rutted");
+  const bigHit  = !!(f.bigJumps || f.flatLand);
+
+  // Nettoforderung je Klicker: Gelände voll, Bias gekappt, dann gesättigt.
+  const step = {};
+  KEYS.forEach(k => {
+    const capBias = clamp(bias[k], -BIAS_CAP, BIAS_CAP);
+    step[k] = Math.round(soften(terr[k] + capBias));
+  });
+
+  // ---- Kopplung: Zug- gegen Druckstufe, damit nichts packt oder kickt ----
+  // Vorzeichen: + = weicher/schneller (weniger Dämpfung), − = fester/langsamer.
+  if (chatter && step.fork_reb <= -2 && step.fork_comp <= -1){
+    step.fork_reb += 1;
+    flags.push({level:"warn", title:"Packing-Schutz vorne",
+      text:"Gabel-Zug- und -Druckstufe stehen zusammen sehr fest. Auf Bremswellen und Wurzeln würde sich die Gabel über die Schlagserie nach unten arbeiten. Zugstufe eine Stufe schneller gesetzt."});
+  }
+  if (bigHit && step.fork_reb >= 2){
+    step.fork_reb -= 1;
+    flags.push({level:"warn", title:"Kickback-Schutz vorne",
+      text:"Für die großen Sprünge wäre die Gabel-Zugstufe zu schnell — nach der Landung würde die Front ausschlagen. Eine Stufe langsamer gesetzt."});
+  }
+  if (chatter && step.shock_ls_reb <= -2 && step.shock_ls_comp <= -1){
+    step.shock_ls_reb += 1;
+    flags.push({level:"warn", title:"Packing-Schutz hinten",
+      text:"Low-Speed-Zug- und -Druckstufe hinten stehen gemeinsam sehr fest. Das Heck würde über die Schlagserie durchsacken. Zugstufe eine Stufe schneller gesetzt."});
+  }
+  if (bigHit && step.shock_hs_reb >= 2){
+    step.shock_hs_reb -= 1;
+    flags.push({level:"warn", title:"Kickback-Schutz hinten",
+      text:"High-Speed-Zugstufe hinten wäre für die Landungen zu schnell — das Heck würde kicken. Eine Stufe langsamer gesetzt."});
+  }
+
+  // ---- Nickbalance: Druckstufen vorne/hinten dürfen nicht weit auseinander ----
+  const shockCompMean = (step.shock_ls_comp + step.shock_hs_comp) / 2;
+  const compGap = Math.round(step.fork_comp - shockCompMean);
+  if (Math.abs(compGap) >= 3){
+    const softer = compGap > 0 ? "vorne deutlich weicher" : "hinten deutlich weicher";
+    flags.push({level:"warn", title:"Nickbalance prüfen",
+      text:`Die Druckstufen liegen rund ${Math.abs(compGap)} Stufen auseinander (${softer}). Das kann die Nickbalance kippen. Taucht das Motorrad einseitig, gleiche die Differenz um ein bis zwei Stufen an.`});
+  }
+
+  // ---- Echte Zielkonflikte: ein Klicker wurde in beide Richtungen gezogen ----
+  const conflicts = KEYS.filter(k => pos[k] >= 2 && neg[k] <= -2).map(k => CLICK_LABELS[k]);
+  if (conflicts.length){
+    flags.push({level:"info", title:"Kompromiss gerechnet",
+      text:`Deine Streckenmerkmale ziehen ${conflicts.join(", ")} gleichzeitig in beide Richtungen. Der ausgegebene Wert ist die Mitte, kein Optimum für beide Fälle. Wenn ein Streckenabschnitt dominiert, verstelle bewusst dorthin.`});
+  }
+
+  // ---- Werte bauen, Hardware-Anschläge ausweisen ----
+  const values = {}, deltas = {}, units = {}, bases = {};
+  KEYS.forEach(k => {
+    const u = unitMeta(base, k);
+    units[k] = u; bases[k] = u.base;
+    if (u.unit === "turn"){
+      const raw = u.base + step[k] * u.step;
+      const v = clamp(snapStep(raw, u.step), u.min, u.max);
+      values[k] = v; deltas[k] = r2(v - u.base);
+      if (raw < u.min - 1e-9 || raw > u.max + 1e-9)
+        flags.push({level:"warn", title:"Hardware-Grenze: " + CLICK_LABELS[k],
+          text:`Die Bedingungen verlangen mehr, als der Versteller hergibt — ${CLICK_LABELS[k]} steht am Anschlag. Weiter kommst du hier nur über Feder, Vorspannung oder Ölstand, nicht über Klicks.`});
+    } else {
+      const raw = u.base + step[k];
+      values[k] = clamp(raw, 0, u.max);
+      deltas[k] = values[k] - u.base;
+      if (raw < 0 || raw > u.max)
+        flags.push({level:"warn", title:"Hardware-Grenze: " + CLICK_LABELS[k],
+          text:`Die Bedingungen verlangen mehr, als der Versteller hergibt — ${CLICK_LABELS[k]} steht ${raw < 0 ? "komplett zugedreht" : "komplett offen"} am Anschlag. Weiter kommst du hier nur über Feder, Vorspannung oder Ölstand, nicht über Klicks.`});
+    }
+  });
+  return {values, deltas, base:bases, units, max, reasons, flags};
+}
+
+/* =====================================================================
+   MODUS SUPERMOTO / STRASSE
+   ===================================================================== */
+const MODES = {
+  offroad:   {name:"Gelände", desc:"Motocross, Cross-Country, Enduro. Setup je Strecke und Bedingung.",
+    note:"Der volle Rechengang: Federn, Sag, Geometrie und Klicker werden aus Motorrad, Fahrerprofil und Streckenblock bestimmt."},
+  supermoto: {name:"Supermoto / Straße", desc:"17\"/17\" mit Straßenreifen auf Asphalt. Ein Grundsetup, dauerhaft.",
+    note:"Ein einmaliges Grundsetup für normalen Asphalt, kein Streckenblock. Straffer und berechenbarer als im Gelände."}
+};
+
+const SM_FORK_ADD  = [0.3, 0.5];
+const SM_FORK_BAR  = [0.2, 0.4];
+const SM_SHOCK_ADD = [4, 8];
+const SM_DELTA = {fork_comp:-4, fork_reb:-2, shock_hs_comp:0, shock_ls_comp:-3, shock_ls_reb:-2, shock_hs_reb:-1};
+const SM_LOWERED_DELTA = {fork_comp:-1, shock_ls_comp:-1, shock_hs_comp:-1};
+const rangeTxt = (a, b, unit) => `${a}–${b} ${unit}`;
+
+function smSprings(bike, geo){
+  const isAir = isAirFork(bike);
+  const fa = isAir ? SM_FORK_BAR : SM_FORK_ADD;
+  const fg = forkGrid(bike), sg = shockGrid(bike);
+  const fork  = [snapTo(geo.fork + fa[0], fg, geo.fork), snapTo(geo.fork + fa[1], fg, geo.fork)];
+  const shock = [snapTo(geo.shock + SM_SHOCK_ADD[0], sg, geo.shock), snapTo(geo.shock + SM_SHOCK_ADD[1], sg, geo.shock)];
+  if (fork[1] <= fork[0])  fork[1]  = r1(fork[0] + fg);
+  if (shock[1] <= shock[0]) shock[1] = r1(shock[0] + sg);
+  return {isAir, geo, fork, shock};
+}
+
+function smSag(bike, lowered){
+  const mini = bike.sag === "mini";
+  let rider = mini ? [76, 84] : [90, 100];
+  let stat  = mini ? [14, 18] : [18, 25];
+  const geoStat = SAG[bike.sag].stat;
+  let statR = `Deutlich weniger als die ${geoStat} mm im Gelände. Das Heck steht hoch und bleibt beim Anlupfen stabil.`;
+  let riderR = "Straffer als jedes Gelände-Setup. Weniger Nicken beim Bremsen, berechenbarer Balancepunkt.";
+  if (lowered){
+    rider = rider.map(v => Math.round(v * 0.78));
+    stat  = stat.map(v => Math.round(v * 0.75));
+    statR = "Gekürzter Federweg: absoluter Sag skaliert mit. Prozentual bleibt das Verhältnis gleich.";
+    riderR = "Auf den gekürzten Federweg heruntergerechnet. Miss nach dem Umbau neu, die Serienwerte gelten nicht mehr.";
+  }
+  return {stat, statR, rider, riderR};
+}
+
+function smGeometry(lowered){
+  return lowered
+    ? {txt:"0 mm", label:"Gabel bündig", steer:"Stabil",
+       note:"Bündig mit der oberen Gabelbrücke. Der gekürzte Federweg hat die Front bereits abgesenkt, weiteres Durchstecken macht das Vorderrad nervös."}
+    : {txt:"0 bis −5 mm", label:"Gabelposition", steer:"Stabil",
+       note:"Bündig oder negativ, also Standrohre bis zu 5 mm unter der Brücke. Nie durchgesteckt: auf Asphalt zählt Ruhe in der Front mehr als Einlenkschärfe."};
+}
+
+function smPreload(lowered){
+  const r = lowered ? [2, 4] : [3, 5];
+  return {r, note:`Etwa ${r[0]}–${r[1]} mm mehr Vorspannung als im Gelände. Das Umlenkverhältnis übersetzt jeden Millimeter Federteller in rund 3 mm weniger Sag am Hinterrad.`};
+}
+
+function smClickers(bike, skill, style, lowered){
+  const base = bike.clicks, max = base.max;
+  const d = {}; KEYS.forEach(k => d[k] = 0);
+  const reasons = [];
+  const add = (title, text, changes) => {
+    Object.entries(changes).forEach(([k,v]) => d[k] += v);
+    reasons.push({title, text});
+  };
+  const scale = o => Object.fromEntries(Object.entries(o).map(([k,v]) => [k, Math.round(v * max / 24)]));
+  const HOLD = "shock_hs_comp";
+  const half = n => n > 0 ? Math.round(n/2) : -Math.round(-n/2);
+  const all = n => Object.fromEntries(KEYS.filter(k => k !== HOLD).map(k => [k, n]));
+
+  add("Untergrund: Asphalt",
+    "Kein Boden, der nachgibt. Gabel-Druckstufe erheblich fester gegen das Abtauchen beim Bremsen, Low-Speed-Druckstufe hinten fester gegen das Wanken in der Kurve. Zugstufen vorn und hinten langsamer, damit das Motorrad nach Bodenwellen nicht nachschwingt.",
+    scale(SM_DELTA));
+
+  add("High-Speed-Druckstufe hinten",
+    "Bleibt auf dem Werkswert offen. Auf der Straße gibt es keine Landungen, gegen die das Federbein Reserve halten müsste. Zudrehen kostet nur Grip auf Querfugen.",
+    {});
+
+  if (lowered)
+    add("Federweg gekürzt",
+      "Weniger Weg heißt weniger Reserve bis zum Durchschlag. Beide Druckstufen eine Stufe fester, hinten auch High-Speed, weil Bordsteinkanten und Querfugen sonst durchschlagen.",
+      scale(SM_LOWERED_DELTA));
+
+  const sd = half(SKILL_DELTA[skill] || 0);
+  if (sd) add("Fahrkönnen: " + skill,
+    sd > 0 ? "Gesamtes Setup etwas weicher, damit es Fahrfehler verzeiht."
+           : "Gesamtes Setup straffer, damit es bei Tempo und späten Bremspunkten nicht durchsackt. Halb so stark gewichtet wie im Gelände.",
+    all(sd));
+
+  const st = half(STYLE_DELTA[style] || 0);
+  if (st) add("Fahrstil",
+    st > 0 ? "Flüssiger Stil belastet das Fahrwerk weniger, daher etwas mehr Komfort."
+           : "Aggressiver Stil mit späten Bremspunkten braucht mehr Halt in der Gabel.",
+    all(st));
+
+  add("Wheelies",
+    "Übersetzung, Kupplung und Gasannahme bestimmen den Balancepunkt stärker als das Fahrwerk. Das Fahrwerk sorgt nur dafür, dass das Heck beim Anlupfen nicht einsackt: harte Feder, straffe Vorspannung, wenig statischer Sag.",
+    {});
+
+  const values = {}, deltas = {}, ranges = {}, units = {}, bases = {};
+  KEYS.forEach(k => {
+    const u = unitMeta(base, k);
+    units[k] = u; bases[k] = u.base;
+    if (u.unit === "turn"){
+      const v = clamp(snapStep(u.base + d[k] * u.step, u.step), u.step, u.max);
+      values[k] = v; deltas[k] = r2(v - u.base);
+      ranges[k] = [clamp(r2(v - u.step), u.step, u.max), clamp(r2(v + u.step), u.step, u.max)];
+    } else {
+      const v = clamp(u.base + d[k], 1, u.max);
+      values[k] = v; deltas[k] = v - u.base;
+      ranges[k] = [clamp(v - 1, 1, u.max), clamp(v + 1, 1, u.max)];
+    }
+  });
+  return {values, deltas, ranges, base:bases, units, max, reasons};
+}
+
+/* =====================================================================
+   STATE + STORAGE
+   ===================================================================== */
+const GEAR_PRESETS = {
+  "4.7":{label:"Minimal · 4,7 kg", txt:"Helm 1,35 · Brille 0,12 · Jersey und Hose 0,75 · Stiefel 2,2 · Handschuhe 0,09 · Socken 0,15 kg"},
+  "6.0":{label:"Standard MX · 6,0 kg", txt:"Minimal-Ausrüstung plus Brustpanzer 0,8 und Knieschützer 0,55 kg"},
+  "7.6":{label:"Voll geschützt · 7,6 kg", txt:"Standard plus Knieorthesen statt Schützer 1,6 und Nackenstütze 0,55 kg"},
+  "9.0":{label:"Enduro + Trinkrucksack · 9,0 kg", txt:"Voll geschützt plus Trinkrucksack mit 2 l Wasser und Werkzeug, rund 3 kg"},
+  "custom":{label:"Eigener Wert", txt:"Ausrüstung wiegen: alles anziehen, auf die Waage, Differenz zum nackten Gewicht."}
+};
+
+const defaultState = () => ({
+  bike:"stark-varg-mx",
+  mode:"offroad",
+  lowered:false,
+  starkClass:null,          // null = noch nicht gewählt. Wird NIE automatisch gesetzt.
+  springChoice:"stock",     // stock | target | custom
+  customFork:0,
+  customShock:0,
+  bodyWeight:75,
+  gearPreset:"6.0",
+  gearWeight:6.0,
+  skill:"Hobbyfahrer",
+  style:"neutral",
+  surface:"mixed",
+  condition:"broken",
+  moisture:"tacky",
+  profile:"rolling",
+  temp:"mild",
+  duration:"race",
+  features:{}
+});
+
+let state = defaultState();
+let step = 0;
+
+const memStore = {};
+const Store = {
+  async get(key){
+    if (window.storage){
+      try { const r = await window.storage.get(key); return r ? r.value : null; }
+      catch(e){ return null; }
+    }
+    try { return localStorage.getItem(key); } catch(e){ return memStore[key] ?? null; }
+  },
+  async set(key, value){
+    if (window.storage){
+      try { await window.storage.set(key, value); return true; } catch(e){ return false; }
+    }
+    try { localStorage.setItem(key, value); return true; } catch(e){ memStore[key] = value; return true; }
+  }
+};
+const K = {
+  setups:"suspensionlab:setups:v2",
+  notes:"suspensionlab:notes:v1",
+  svc:"suspensionlab:service:v1",
+  train:"suspensionlab:training:v1"
+};
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,6);
+
+function toast(msg){
+  const t = $("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  clearTimeout(t._t);
+  t._t = setTimeout(()=>t.classList.remove("show"), 2000);
+}
+
+/* Datum */
+const iso = d => d.toISOString().slice(0,10);
+const todayISO = () => iso(new Date());
+function fmtDate(s){
+  if (!s) return "–";
+  const [y,m,d] = s.split("-");
+  return `${d}.${m}.${y}`;
+}
+function daysUntil(s){
+  const a = new Date(s + "T00:00:00"), b = new Date(todayISO() + "T00:00:00");
+  return Math.round((a - b) / 86400000);
+}
+function addDays(s, n){
+  const d = new Date(s + "T00:00:00");
+  d.setDate(d.getDate() + n);
+  return iso(d);
+}
+
+/* =====================================================================
+   KOPF
+   ===================================================================== */
+function bikesOfBrand(brand){ return Object.entries(BIKES).filter(([,b]) => b.brand === brand); }
+function defaultBikeOf(brand){
+  const list = bikesOfBrand(brand);
+  for (const cat of CAT_ORDER){
+    const hit = list.find(([,b]) => b.cat === cat);
+    if (hit) return hit[0];
+  }
+  return list[0][0];
+}
+
+function renderHeader(){
+  const bike = BIKES[state.bike];
+  const brand = BRANDS[bike.brand];
+  applyTheme(bike.brand);
+  $("eyebrow").textContent = `${bike.cat} · ${brand.tag}`;
+  $("pageTitle").innerHTML = `${brand.name === "Stark Future" ? "Stark" : brand.name} ${esc(bike.name)}<span class="sub">${esc(bike.susp)}</span>`;
+  const plate = $("specPlate");
+  plate.innerHTML = "";
+  bike.spec.forEach(([k,v])=>{
+    const d = document.createElement("div");
+    d.innerHTML = `<div class="k">${esc(k)}</div><div class="v">${esc(v)}</div>`;
+    plate.appendChild(d);
+  });
+}
+
+/* =====================================================================
+   WIZARD
+   ===================================================================== */
+function stepList(){
+  const a = [
+    {id:"bike",    t:"Motorrad",           l:"Marke und Modell bestimmen Federbasis, Klickerbereiche und die Sag-Zielwerte."},
+    {id:"mode",    t:"Einsatzzweck",       l:"Gelände oder Asphalt. Danach richtet sich, welche Fragen überhaupt kommen."},
+    {id:"weight",  t:"Gewicht",            l:"Zuerst das Gewicht. Es entscheidet, welche Federrate rechnerisch zu dir passt."},
+    {id:"springs", t:"Verbautes Fahrwerk", l:"Was steckt tatsächlich im Motorrad? Diese Angabe ändert sich nie von selbst."},
+    {id:"rider",   t:"Fahrerprofil",       l:"Können und Stil verschieben alle Klicker gleichmäßig in eine Richtung."}
+  ];
+  if (state.mode === "supermoto"){
+    a.push({id:"lowered", t:"Umbau", l:"Wurde der Federweg gekürzt? Das ändert Sag, Gabelposition und Druckstufen."});
+  } else {
+    a.push({id:"track",    t:"Strecke & Bedingungen", l:"Der Boden, den du heute fährst, bestimmt die Dämpfung mehr als alles andere."});
+    a.push({id:"features", t:"Streckenmerkmale",      l:"Mehrfachauswahl. Nur ankreuzen, was wirklich auf der Strecke ist."});
+  }
+  a.push({id:"review", t:"Prüfen & rechnen", l:"Kurzer Blick auf alles. Danach steht das Setup."});
+  return a;
+}
+
+function stepValid(id){
+  if (id === "weight") return state.bodyWeight > 0 && state.gearWeight >= 0;
+  if (id === "springs"){
+    const bike = BIKES[state.bike];
+    if (bike.starkClasses) return state.starkClass !== null;
+    if (state.springChoice === "custom") return state.customShock > 0 && (isAirFork(bike) || state.customFork > 0);
+    return true;
+  }
+  return true;
+}
+
+function totalWeight(){ return r1(state.bodyWeight + state.gearWeight); }
+
+function renderWizard(){
+  const steps = stepList();
+  step = clamp(step, 0, steps.length - 1);
+  const cur = steps[step];
+
+  $("wizRail").innerHTML = steps.map((s,i) =>
+    `<span class="${i < step ? "done" : i === step ? "now" : ""}"></span>`).join("");
+  $("wizCount").textContent = `Schritt ${step + 1} von ${steps.length} · ${cur.t}`;
+  $("wizTitle").textContent = cur.t;
+  $("wizLead").textContent = cur.l;
+
+  const canJump = step < steps.length - 1 && steps.every(s => stepValid(s.id));
+  $("wizJump").hidden = !canJump;
+
+  $("btnBack").disabled = step === 0;
+  $("btnBack").style.visibility = step === 0 ? "hidden" : "visible";
+  $("btnNext").textContent = cur.id === "review" ? "Setup berechnen" : "Weiter";
+  $("btnNext").disabled = !stepValid(cur.id);
+
+  const p = $("wizPanel");
+  p.innerHTML = "";
+  ({bike:stepBike, mode:stepMode, weight:stepWeight, springs:stepSprings,
+    rider:stepRider, track:stepTrack, features:stepFeatures, lowered:stepLowered,
+    review:stepReview})[cur.id](p);
+
+  window.scrollTo({top:0, behavior:"smooth"});
+}
+
+function refreshNav(){
+  const cur = stepList()[step];
+  $("btnNext").disabled = !stepValid(cur.id);
+  $("wizJump").hidden = !(step < stepList().length - 1 && stepList().every(s => stepValid(s.id)));
+}
+
+/* ---- Schritt 1: Motorrad ---- */
+function stepBike(p){
+  p.innerHTML = `
+    <div class="grid2">
+      <div class="field"><label for="brandSelect">Marke</label><select id="brandSelect"></select></div>
+      <div class="field"><label for="modelSelect">Modell</label><select id="modelSelect"></select></div>
+    </div>
+    <div class="note" id="bikeNote"></div>`;
+
+  const bs = $("brandSelect");
+  Object.entries(BRANDS).forEach(([key,b])=>{
+    const o = document.createElement("option");
+    o.value = key; o.textContent = b.name; bs.appendChild(o);
+  });
+  bs.value = BIKES[state.bike].brand;
+
+  const fillModels = ()=>{
+    const brand = BIKES[state.bike].brand;
+    const sel = $("modelSelect");
+    sel.innerHTML = "";
+    const list = bikesOfBrand(brand);
+    CAT_ORDER.forEach(cat=>{
+      const inCat = list.filter(([,b]) => b.cat === cat);
+      if (!inCat.length) return;
+      const g = document.createElement("optgroup");
+      g.label = cat;
+      inCat.forEach(([key,b])=>{
+        const o = document.createElement("option");
+        o.value = key; o.textContent = b.name; g.appendChild(o);
+      });
+      sel.appendChild(g);
+    });
+    sel.value = state.bike;
+  };
+  fillModels();
+
+  const noteTxt = ()=>{
+    const bike = BIKES[state.bike];
+    $("bikeNote").textContent = bike.starkClasses
+      ? "Dieses Modell wird ab Werk in festen Federklassen ausgeliefert. Welche verbaut ist, wählst du gleich selbst."
+      : `Serienfeder hinten ${num(bike.shockBase)} N/mm, ausgelegt auf ${bike.baseWeight} kg Gesamtgewicht. `
+        + (isAirFork(bike) ? `Vorne eine Luftgabel mit ${fmt1(bike.base)} bar Serienwert.` : `Vorne ${fmt1(bike.base)} N/mm Serienfeder.`);
+  };
+  noteTxt();
+
+  bs.addEventListener("change", e=>{
+    state.bike = defaultBikeOf(e.target.value);
+    state.starkClass = null;
+    state.springChoice = "stock";
+    fillModels(); noteTxt(); renderHeader(); refreshNav();
+  });
+  $("modelSelect").addEventListener("change", e=>{
+    state.bike = e.target.value;
+    state.starkClass = null;
+    state.springChoice = "stock";
+    noteTxt(); renderHeader(); refreshNav();
+  });
+}
+
+/* ---- Schritt 2: Einsatzzweck ---- */
+function stepMode(p){
+  p.innerHTML = `<div class="pick-grid two" id="modeGrid"></div><div class="note" id="modeNote"></div>`;
+  const grid = $("modeGrid");
+  Object.entries(MODES).forEach(([key, m])=>{
+    const btn = document.createElement("button");
+    btn.type = "button"; btn.className = "pick";
+    btn.setAttribute("aria-pressed", String(key === state.mode));
+    btn.innerHTML = `<div class="pn">${esc(m.name)}</div><div class="pd">${esc(m.desc)}</div>`;
+    btn.addEventListener("click", ()=>{
+      state.mode = key;
+      renderWizard();
+    });
+    grid.appendChild(btn);
+  });
+  $("modeNote").textContent = MODES[state.mode].note;
+}
+
+/* ---- Schritt 3: Gewicht ---- */
+function stepWeight(p){
+  p.innerHTML = `
+    <div class="grid2">
+      <div class="field">
+        <label for="bodyWeight">Körpergewicht ohne Ausrüstung (kg)</label>
+        <input type="number" id="bodyWeight" min="25" max="150" step="0.5" value="${state.bodyWeight}">
+      </div>
+      <div class="field">
+        <label for="gearPreset">Ausrüstung</label>
+        <select id="gearPreset">${Object.entries(GEAR_PRESETS).map(([k,v]) =>
+          `<option value="${k}" ${k === state.gearPreset ? "selected" : ""}>${esc(v.label)}</option>`).join("")}</select>
+      </div>
+    </div>
+    <div class="field">
+      <label for="gearWeight">Ausrüstungsgewicht (kg)</label>
+      <input type="number" id="gearWeight" min="0" max="20" step="0.1" value="${state.gearWeight}">
+      <div class="hint-line" id="gearBreakdown"></div>
+    </div>
+    <div class="total-box">
+      <div><div class="tb-k">Gesamtgewicht</div><div class="tb-v" id="totalW">–</div></div>
+      <div style="text-align:right;"><div class="tb-k">Auslegung des Modells</div><div class="tb-v" id="rangeW" style="font-size:15px;color:var(--muted);">–</div></div>
+      <div class="tb-s" id="weightHint"></div>
+    </div>`;
+
+  const sync = ()=>{
+    const preset = GEAR_PRESETS[$("gearPreset").value] ? $("gearPreset").value : state.gearPreset;
+    state.gearPreset = preset;
+    const inp = $("gearWeight");
+    if (preset === "custom"){
+      inp.disabled = false;
+      state.gearWeight = parseFloat(inp.value) || 0;
+    } else {
+      inp.disabled = true;
+      inp.value = preset;
+      state.gearWeight = parseFloat(preset);
+    }
+    $("gearBreakdown").textContent = GEAR_PRESETS[preset].txt;
+
+    const bike = BIKES[state.bike];
+    const tw = totalWeight();
+    $("totalW").textContent = state.bodyWeight > 0 ? fmt1(tw) + " kg" : "–";
+    const wr = weightRange(bike);
+    $("rangeW").textContent = `${wr.min}–${wr.max} kg`;
+    const warn = state.bodyWeight > 0 ? weightWarning(bike, tw) : "";
+    $("weightHint").textContent = warn || "Fahrer plus alles, was du am Körper trägst. Genau dieser Wert bestimmt die Federrate.";
+    $("weightHint").style.color = warn ? "var(--warn)" : "var(--muted)";
+    refreshNav();
+  };
+
+  $("bodyWeight").addEventListener("input", e=>{ state.bodyWeight = parseFloat(e.target.value) || 0; sync(); });
+  $("gearWeight").addEventListener("input", e=>{ state.gearWeight = parseFloat(e.target.value) || 0; sync(); });
+  $("gearPreset").addEventListener("change", sync);
+  sync();
+}
+
+/* ---- Schritt 4: Verbautes Fahrwerk ---- */
+function stepSprings(p){
+  const bike = BIKES[state.bike];
+  const tw = totalWeight();
+  const target = targetSprings(bike, tw, state.bodyWeight);
+
+  if (bike.starkClasses){
+    p.innerHTML = `
+      <label>Welche Federklasse ist verbaut?</label>
+      <div class="pick-grid" id="clsGrid"></div>
+      <div class="cls-foot" id="clsFoot" style="font-size:12.5px;color:var(--muted);line-height:1.55;margin-top:10px;"></div>
+      <div class="note">${esc(bike.classNote)}</div>`;
+
+    const grid = $("clsGrid");
+    STARK_CLASSES.forEach((c,i)=>{
+      const btn = document.createElement("button");
+      btn.type = "button"; btn.className = "pick";
+      btn.setAttribute("aria-pressed", String(i === state.starkClass));
+      btn.innerHTML = `
+        ${i === target.classIdx ? `<div class="pick-tag">Für ${fmt1(state.bodyWeight)} kg</div>` : ""}
+        <div class="pn">${esc(c.label)}</div>
+        <div class="pd">${esc(c.desc)}</div>
+        <div class="pv">${numq(c.shock)} N/mm hinten · ${fmt1(c.fork)} N/mm vorn</div>`;
+      btn.addEventListener("click", ()=>{ state.starkClass = i; renderWizard(); });
+      grid.appendChild(btn);
+    });
+
+    const foot = $("clsFoot");
+    if (state.starkClass === null){
+      foot.innerHTML = `Noch nichts gewählt. Wenn du es nicht weißt: auf dem Federbein steht die Rate, oder es liegt in den Bestellunterlagen. `
+        + `<button type="button" class="wiz-jump" id="clsTakeRec">Empfehlung für dein Gewicht übernehmen</button>`;
+      $("clsTakeRec").addEventListener("click", ()=>{ state.starkClass = target.classIdx; renderWizard(); });
+    } else if (state.starkClass === target.classIdx){
+      foot.textContent = "Passt zu deinem Körpergewicht. Diese Auswahl bleibt stehen, auch wenn du das Gewicht später änderst.";
+    } else {
+      const d = state.starkClass - target.classIdx;
+      foot.textContent = `${Math.abs(d) === 1 ? "Eine" : Math.abs(d)} Klasse ${d < 0 ? "weicher" : "härter"} als die für dein Gewicht. `
+        + `Das ist kein Fehler, wenn du bewusst so bestellt hast. Die App gleicht es über Vorspannung und Klicker aus, so weit das geht.`;
+    }
+    return;
+  }
+
+  const air = isAirFork(bike);
+  p.innerHTML = `
+    <label>Welche Federn sind verbaut?</label>
+    <div class="pick-grid" id="spGrid"></div>
+    <div id="customBox" hidden style="margin-top:14px;">
+      <div class="grid2">
+        ${air ? "" : `<div class="field">
+          <label for="cFork">Gabelfeder (N/mm)</label>
+          <input type="number" id="cFork" min="2" max="7" step="0.1" value="${state.customFork || bike.base}">
+        </div>`}
+        <div class="field">
+          <label for="cShock">Federbein-Feder (N/mm)</label>
+          <input type="number" id="cShock" min="20" max="80" step="0.5" value="${state.customShock || bike.shockBase}">
+        </div>
+      </div>
+      <div class="hint-line">Die Rate steht meist auf der Feder selbst, eingeprägt oder aufgedruckt.</div>
+    </div>
+    <div class="note">
+      ${air
+        ? `Die Gabel ist eine Luftgabel. Dort gibt es keine Feder zum Tauschen: der Zielwert ist ein Luftdruck und steht im Ergebnis. Diese Auswahl betrifft nur das Federbein.`
+        : `Rechnerisch passend für ${fmt1(tw)} kg wären ${fmt1(target.fork)} N/mm vorn und ${num(target.shock)} N/mm hinten. Was verbaut ist, weißt nur du.`}
+    </div>`;
+
+  const opts = [
+    {id:"stock",  n:"Serienfedern",           d:"Nichts getauscht, alles wie ab Werk.",
+     v: air ? `${num(bike.shockBase)} N/mm hinten` : `${num(bike.shockBase)} N/mm hinten · ${fmt1(bike.base)} N/mm vorn`},
+    {id:"target", n:"Passende Federn",        d:"Bereits auf dein Gewicht umgerüstet.",
+     v: air ? `${num(target.shock)} N/mm hinten` : `${num(target.shock)} N/mm hinten · ${fmt1(target.fork)} N/mm vorn`},
+    {id:"custom", n:"Eigene Raten",           d:"Andere Federn drin, Werte selbst eintragen.", v:"Selbst eingeben"}
+  ];
+  const grid = $("spGrid");
+  opts.forEach(o=>{
+    const btn = document.createElement("button");
+    btn.type = "button"; btn.className = "pick";
+    btn.setAttribute("aria-pressed", String(o.id === state.springChoice));
+    btn.innerHTML = `<div class="pn">${esc(o.n)}</div><div class="pd">${esc(o.d)}</div><div class="pv">${esc(o.v)}</div>`;
+    btn.addEventListener("click", ()=>{ state.springChoice = o.id; renderWizard(); });
+    grid.appendChild(btn);
+  });
+
+  if (state.springChoice === "custom"){
+    $("customBox").hidden = false;
+    if (!air && $("cFork")){
+      state.customFork = state.customFork || bike.base;
+      $("cFork").addEventListener("input", e=>{ state.customFork = parseFloat(e.target.value) || 0; refreshNav(); });
+    }
+    state.customShock = state.customShock || bike.shockBase;
+    $("cShock").addEventListener("input", e=>{ state.customShock = parseFloat(e.target.value) || 0; refreshNav(); });
+  }
+}
+
+/* ---- Schritt 5: Fahrerprofil ---- */
+function stepRider(p){
+  p.innerHTML = `
+    <div class="grid2">
+      <div class="field">
+        <label for="skill">Fahrkönnen</label>
+        <select id="skill">${SKILLS.map(s => `<option ${s === state.skill ? "selected" : ""}>${s}</option>`).join("")}</select>
+      </div>
+      <div class="field">
+        <label for="style">Fahrstil</label>
+        <select id="style">${Object.entries(STYLES).map(([k,v]) => `<option value="${k}" ${k === state.style ? "selected" : ""}>${esc(v)}</option>`).join("")}</select>
+      </div>
+    </div>
+    <div class="note">Sei ehrlich. Ein zu hoch angesetztes Können macht das Fahrwerk härter, als dein Tempo es trägt, und kostet Grip.</div>`;
+  $("skill").addEventListener("change", e => state.skill = e.target.value);
+  $("style").addEventListener("change", e => state.style = e.target.value);
+}
+
+/* ---- Schritt 6a: Strecke ---- */
+function sel(id, map, val){
+  return `<select id="${id}">${Object.entries(map).map(([k,v]) =>
+    `<option value="${k}" ${k === val ? "selected" : ""}>${esc(typeof v === "string" ? v : v.label)}</option>`).join("")}</select>`;
+}
+function stepTrack(p){
+  p.innerHTML = `
+    <div class="grid2">
+      <div class="field"><label for="surface">Untergrund</label>${sel("surface", SURFACES, state.surface)}</div>
+      <div class="field"><label for="condition">Streckenzustand</label>${sel("condition", CONDITIONS, state.condition)}</div>
+    </div>
+    <div class="grid3">
+      <div class="field"><label for="moisture">Bodenfeuchte</label>${sel("moisture", MOISTURE, state.moisture)}</div>
+      <div class="field"><label for="profile">Streckenprofil</label>${sel("profile", PROFILES, state.profile)}</div>
+      <div class="field"><label for="temp">Temperatur</label>${sel("temp", TEMPS, state.temp)}</div>
+    </div>
+    <div class="field" style="margin-bottom:0;"><label for="duration">Fahrdauer am Stück</label>${sel("duration", DURATIONS, state.duration)}</div>`;
+  ["surface","condition","moisture","profile","temp","duration"].forEach(id=>{
+    $(id).addEventListener("change", e => state[id] = e.target.value);
+  });
+}
+
+/* ---- Schritt 6b: Merkmale ---- */
+function stepFeatures(p){
+  p.innerHTML = `<div class="chips" id="featureChips"></div>
+    <div class="note">Jedes Merkmal verschiebt bestimmte Klicker. Zu viel angeklickt heißt gegenläufige Anpassungen, die sich aufheben.</div>`;
+  const box = $("featureChips");
+  FEATURES.forEach(ft=>{
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "chip";
+    b.setAttribute("aria-pressed", String(!!state.features[ft.id]));
+    b.textContent = ft.label;
+    b.addEventListener("click", ()=>{
+      state.features[ft.id] = !state.features[ft.id];
+      b.setAttribute("aria-pressed", String(state.features[ft.id]));
+    });
+    box.appendChild(b);
+  });
+}
+
+/* ---- Schritt 6c: Umbau (Supermoto) ---- */
+function stepLowered(p){
+  p.innerHTML = `
+    <label>Wurde der Federweg gekürzt?</label>
+    <div class="pick-grid two" id="lowGrid"></div>
+    <div class="note" id="lowNote"></div>`;
+  const grid = $("lowGrid");
+  [[false,"Nein, Serienfederweg","Nur Räder und Reifen getauscht, Gabel und Federbein unverändert lang."],
+   [true,"Ja, gekürzt","Federweg reduziert, Sitzhöhe niedriger."]].forEach(([val,n,d])=>{
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "pick";
+    b.setAttribute("aria-pressed", String(val === state.lowered));
+    b.innerHTML = `<div class="pn">${n}</div><div class="pd">${d}</div>`;
+    b.addEventListener("click", ()=>{ state.lowered = val; renderWizard(); });
+    grid.appendChild(b);
+  });
+  $("lowNote").textContent = state.lowered
+    ? "Gekürzter Federweg: Sag-Ziele und Gabelposition werden mitskaliert, die Druckstufen rücken fester."
+    : "Serienfederweg mit 17\"/17\"-Rädern. Für Wheelies bestimmen Übersetzung und Gasannahme den Balancepunkt stärker als das Fahrwerk.";
+}
+
+/* ---- Schritt 7: Prüfen ---- */
+function stepReview(p){
+  const bike = BIKES[state.bike];
+  const brand = BRANDS[bike.brand];
+  const tw = totalWeight();
+  const target = targetSprings(bike, tw, state.bodyWeight);
+  const inst = installedSprings(bike, state, target);
+
+  const rows = [
+    ["Motorrad", `${brand.name} ${bike.name}`],
+    ["Einsatz", MODES[state.mode].name],
+    ["Gesamtgewicht", `${fmt1(tw)} kg (${fmt1(state.bodyWeight)} + ${fmt1(state.gearWeight)})`],
+    ["Verbaut", bike.starkClasses
+      ? `Klasse ${inst.label} · ${numq(inst.shock)} / ${fmt1(inst.fork)} N/mm`
+      : (isAirFork(bike) ? `${num(inst.shock)} N/mm hinten · Luftgabel` : `${num(inst.shock)} / ${fmt1(inst.fork)} N/mm`)],
+    ["Fahrer", `${state.skill} · ${STYLES[state.style]}`]
+  ];
+  if (state.mode === "supermoto"){
+    rows.push(["Umbau", state.lowered ? "Federweg gekürzt" : "Serienfederweg"]);
+  } else {
+    rows.push(["Strecke", `${SURFACES[state.surface].label} · ${CONDITIONS[state.condition]}`]);
+    rows.push(["Bedingungen", `${MOISTURE[state.moisture]} · ${PROFILES[state.profile]} · ${TEMPS[state.temp]}`]);
+    const f = FEATURES.filter(x => state.features[x.id]).map(x => x.label);
+    rows.push(["Merkmale", f.length ? f.join(", ") : "keine gewählt"]);
+  }
+
+  p.innerHTML = `<div class="sum">${rows.map(([k,v]) =>
+    `<div class="sum-row"><div class="sk">${esc(k)}</div><div class="sv">${esc(v)}</div></div>`).join("")}</div>
+    <div class="note">Ein Tipp auf „Setup berechnen" liefert Federurteil, Sag-Ziele, Gabelposition und alle Klicker.</div>`;
+}
+
+/* ---- Navigation ---- */
+$("btnNext").addEventListener("click", ()=>{
+  const steps = stepList();
+  if (!stepValid(steps[step].id)) return;
+  if (steps[step].id === "review"){ runCalc(); return; }
+  step++; renderWizard();
+});
+$("btnBack").addEventListener("click", ()=>{ if (step > 0){ step--; renderWizard(); } });
+$("wizJump").addEventListener("click", ()=>{ step = stepList().length - 1; renderWizard(); });
+$("btnEdit").addEventListener("click", ()=>{
+  $("results").style.display = "none";
+  $("wizard").style.display = "block";
+  renderWizard();
+});
+$("btnRestart").addEventListener("click", ()=>{
+  const bike = state.bike;
+  state = defaultState();
+  state.bike = bike;
+  step = 0;
+  $("results").style.display = "none";
+  $("wizard").style.display = "block";
+  renderHeader(); renderWizard();
+});
+
+/* =====================================================================
+   ERGEBNISSE
+   ===================================================================== */
+function gaugeSVG(label, value, max){
+  const R = 21, C = 2 * Math.PI * R, span = 0.75;
+  const pct = max ? value / max : 0;
+  const dash = C * span;
+  const off = dash * (1 - pct);
+  return `
+  <svg width="58" height="58" viewBox="0 0 58 58" aria-hidden="true">
+    <circle cx="29" cy="29" r="${R}" fill="none" stroke="rgba(255,255,255,0.10)" stroke-width="5"
+      stroke-linecap="round" stroke-dasharray="${dash} ${C}" transform="rotate(135 29 29)"/>
+    <circle cx="29" cy="29" r="${R}" fill="none" stroke="var(--accent)" stroke-width="5"
+      stroke-linecap="round" stroke-dasharray="${dash} ${C}" stroke-dashoffset="${off}" transform="rotate(135 29 29)"/>
+    <text x="29" y="34" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="${label.length > 3 ? 12 : 15}" font-weight="600" fill="#eceef1">${label}</text>
+  </svg>`;
+}
+
+function deltaTxt(u, baseVal, delta){
+  if (delta === 0) return `Werksbasis ${numq(baseVal)} unverändert`;
+  const sign = delta > 0 ? "+" : "−";
+  return `${sign}${numq(Math.abs(delta))} ${unitName(u, delta)} gegenüber Basis ${numq(baseVal)}`
+       + (delta > 0 ? " · weicher" : " · straffer");
+}
+
+function gaugeCard(key, value, baseVal, delta, u){
+  const cls = delta > 0 ? "up" : delta < 0 ? "down" : "same";
+  const unit = u.unit === "turn" ? "Umdrehungen" : "Klicks";
+  return `<div class="gauge">
+    ${gaugeSVG(numq(value), value, u.max)}
+    <div class="g-txt">
+      <div class="g-title">${CLICK_LABELS[key]}</div>
+      <div class="g-sub">${numq(value)} von ${numq(u.max)} ${unit} offen</div>
+      <div class="g-delta ${cls}">${deltaTxt(u, baseVal, delta)}</div>
+    </div>
+  </div>`;
+}
+
+function gaugeCardRange(key, value, range, baseVal, delta, u){
+  const cls = delta > 0 ? "up" : delta < 0 ? "down" : "same";
+  const unit = u.unit === "turn" ? "Umdrehungen" : "Klicks";
+  return `<div class="gauge">
+    ${gaugeSVG(numq(value), value, u.max)}
+    <div class="g-txt">
+      <div class="g-title">${CLICK_LABELS[key]}</div>
+      <div class="g-sub">${numq(range[0])}–${numq(range[1])} von ${numq(u.max)} ${unit} offen</div>
+      <div class="g-delta ${cls}">${deltaTxt(u, baseVal, delta)}</div>
+    </div>
+  </div>`;
+}
+
+/* Der Federbein-Hinweis muss sagen, welcher Einsteller in welcher Einheit läuft. */
+function shockDesc(bike){
+  const t = bike.clicks.turn || {};
+  const base = "High-Speed reagiert auf harte, schnelle Schläge. Low-Speed auf Gewichtsverlagerung und Kurven.";
+  if (!Object.keys(t).length)
+    return base + " Alle Einsteller in Klicks, von komplett geschlossen nach außen gezählt.";
+  const names = Object.keys(t).map(k => CLICK_LABELS[k]);
+  return base + ` Am WP-Federbein sitzt die ${names.join(" und ")} auf einer Sechskantmutter: `
+       + `dieser Wert wird nicht geklickt, sondern in Umdrehungen von komplett geschlossen herausgedreht. `
+       + `Zugstufe und Low-Speed-Druckstufe bleiben Klicks.`;
+}
+
+/* =====================================================================
+   SYMPTOM-MODUS
+   Rückwärts: Symptom rein, Klicker raus. Vorzeichen wie überall in dieser
+   App: plus = mehr Klicks offen = weicher, minus = zugedreht = fester.
+   ===================================================================== */
+const SYMPTOMS = [
+  {id:"forkDive", label:"Front taucht beim Bremsen ab",
+   cause:"Zu wenig Druckstufendämpfung vorn, oder die Gabelfeder trägt das Gewicht nicht.",
+   cl:{fork_comp:-2},
+   tip:"Ändert sich nach zwei Klicks nichts, ist die Feder zu weich. Dann hilft nur die härtere Rate."},
+  {id:"forkBottom", label:"Gabel schlägt durch",
+   cause:"Die Reserve am Ende des Federwegs fehlt.",
+   cl:{fork_comp:-2},
+   tip:"Bei Luftgabeln zuerst 0,1 bar mehr Druck, erst danach die Klicker anfassen."},
+  {id:"forkHarsh", label:"Front prallt ab, kein Grip",
+   cause:"Gabel zu straff. Das Vorderrad springt über die Kanten statt ihnen zu folgen.",
+   cl:{fork_comp:2, fork_reb:1}},
+  {id:"headShake", label:"Lenkerschlagen auf der Geraden",
+   cause:"Die Gabel kommt zu schnell zurück und wirft die Front hoch.",
+   cl:{fork_reb:-2},
+   geo:"Gabel 2 mm zurücknehmen, also weniger durchstecken."},
+  {id:"noTurn", label:"Lenkt nicht ein, schiebt über die Front",
+   cause:"Das Gewicht liegt zu weit hinten, die Front baut keinen Druck auf.",
+   cl:{fork_comp:1},
+   geo:"Gabel 2–3 mm weiter durchstecken.",
+   sag:"Fahrer-Sag hinten um 2 mm reduzieren."},
+  {id:"rearKick", label:"Heck kickt in Bremswellen",
+   cause:"Die Zugstufe hinten gibt den Federweg zu schnell frei.",
+   cl:{shock_ls_reb:-1, shock_hs_comp:1},
+   tip:"Kickt es nur bei schnellen, harten Schlägen, ist die Zugstufe eher zu langsam. Dann in die andere Richtung, siehe Packing."},
+  {id:"rearPack", label:"Heck sackt in Wellenserien immer tiefer",
+   cause:"Packing. Das Federbein kommt zwischen zwei Schlägen nicht mehr heraus.",
+   cl:{shock_ls_reb:2, shock_hs_reb:1}},
+  {id:"rearBottom", label:"Federbein schlägt bei Landungen durch",
+   cause:"Zu wenig High-Speed-Druckstufe hinten, oder die Feder ist zu weich.",
+   cl:{shock_hs_comp:-2}},
+  {id:"rearSwap", label:"Heck bricht beim Beschleunigen seitlich aus",
+   cause:"Das Hinterrad baut keinen Druck auf, das Heck steht zu hoch.",
+   cl:{shock_ls_comp:1, shock_ls_reb:1},
+   sag:"1–2 mm mehr Fahrer-Sag."},
+  {id:"wallow", label:"Fahrwerk schaukelt, fühlt sich schwammig an",
+   cause:"Zu wenig Dämpfung. Das Motorrad schwingt nach, statt sich zu beruhigen.",
+   cl:{fork_reb:-1, shock_ls_reb:-1, shock_ls_comp:-1}},
+  {id:"tooStiff", label:"Alles bockig, Arme ermüden früh",
+   cause:"Gesamtes Setup zu straff für dein Tempo und den Untergrund.",
+   cl:{fork_comp:2, shock_ls_comp:2}},
+  {id:"armPump", label:"Arm Pump nach wenigen Runden",
+   cause:"Die Gabel liefert zu viel Rückmeldung an die Hände. Meistens ist die Druckstufe zu fest oder die Feder zu hart.",
+   cl:{fork_comp:2, fork_reb:1},
+   tip:"Erst Lenkerposition und Griffweite prüfen. Ist beides sauber, gehen zwei Klicks Druckstufe auf."}
+];
+
+let lastSetup = null;   // {values, units} des zuletzt berechneten Setups
+let lastTargets = null; // {stat:[lo,hi], rider:[lo,hi]}
+
+function renderSymptomChips(){
+  const box = $("symptomChips");
+  box.innerHTML = "";
+  SYMPTOMS.forEach(sy=>{
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "chip"; b.dataset.id = sy.id;
+    b.setAttribute("aria-pressed","false");
+    b.textContent = sy.label;
+    b.addEventListener("click", ()=>{
+      b.setAttribute("aria-pressed", b.getAttribute("aria-pressed") === "true" ? "false" : "true");
+      renderSymptomOut();
+    });
+    box.appendChild(b);
+  });
+}
+
+function renderSymptomOut(){
+  const out = $("symptomOut");
+  out.innerHTML = "";
+  if (!lastSetup) return;
+
+  const picked = SYMPTOMS.filter(sy =>
+    document.querySelector(`#symptomChips .chip[data-id="${sy.id}"]`).getAttribute("aria-pressed") === "true");
+
+  if (!picked.length){
+    out.innerHTML = `<div class="empty">Kein Symptom gewählt. Fahr erst mit dem berechneten Setup, dann komm mit dem zurück, was dich stört.</div>`;
+    return;
+  }
+
+  const net = {}, pos = {}, neg = {};
+  KEYS.forEach(k => { net[k] = 0; pos[k] = 0; neg[k] = 0; });
+  picked.forEach(sy => Object.entries(sy.cl).forEach(([k,v])=>{
+    net[k] += v;
+    if (v > 0) pos[k] += v; else neg[k] += v;
+  }));
+
+  let html = `<div class="sym-out"><div class="subhead">Ursache</div><ul class="reasons">`;
+  picked.forEach(sy=>{
+    html += `<li><b>${sy.label}</b><br>${sy.cause}${sy.tip ? `<br><span style="color:var(--muted)">${sy.tip}</span>` : ""}</li>`;
+  });
+  html += `</ul>`;
+
+  const touched = KEYS.filter(k => net[k] !== 0 || (pos[k] && neg[k]));
+  html += `<div class="subhead">Was du verstellst</div>`;
+  if (!touched.length){
+    html += `<div class="empty">Die gewählten Symptome heben sich in den Klickern gegenseitig auf. Am Fahrwerk liegt es hier nicht allein.</div>`;
+  } else {
+    html += `<div class="subhead-desc">Ausgehend vom berechneten Setup. Verstelle nur eine Sache pro Ausfahrt, sonst weißt du hinterher nicht, was gewirkt hat.</div>`;
+    touched.forEach(k=>{
+      const u = lastSetup.units[k];
+      const from = lastSetup.values[k];
+      const to = u.unit === "turn"
+        ? clamp(snapStep(from + net[k] * u.step, u.step), u.min || u.step, u.max)
+        : clamp(from + net[k], 0, u.max);
+      const move = r2(to - from);
+      const conflict = pos[k] && neg[k];
+      const dirTxt = move === 0 ? "unverändert"
+        : `${numq(Math.abs(move))} ${unitName(u, move)} ${move > 0 ? "öffnen · weicher" : "zudrehen · fester"}`;
+      html += `<div class="fix-row ${conflict ? "conflict" : ""}">
+        <div class="fk">${CLICK_LABELS[k]}</div>
+        <div class="fv">${numq(from)} → ${numq(to)}</div>
+        <div class="fd">${dirTxt}${conflict ? " · gegenläufige Symptome, in Einzelschritten herantasten" : ""}</div>
+      </div>`;
+    });
+  }
+
+  const extras = [];
+  picked.forEach(sy=>{
+    if (sy.geo) extras.push(["Geometrie", sy.geo]);
+    if (sy.sag) extras.push(["Sag", sy.sag]);
+  });
+  if (extras.length){
+    html += `<div class="subhead">Nicht nur Klicker</div><ul class="reasons">`;
+    extras.forEach(([t,x]) => html += `<li><b>${t}</b><br>${x}</li>`);
+    html += `</ul>`;
+  }
+  out.innerHTML = html + `</div>`;
+}
+
+/* =====================================================================
+   SAG NACHMESSEN
+   ===================================================================== */
+const MM_PER_TURN = 3.5;
+
+function renderSagCheck(){
+  const out = $("sagOut");
+  const L1 = parseFloat($("l1").value), L2 = parseFloat($("l2").value), L3 = parseFloat($("l3").value);
+  if (!lastTargets) return;
+  if (!(L1 > 0 && L2 > 0 && L3 > 0)){
+    out.textContent = "Trage L1, L2 und L3 ein. Die App rechnet den Ist-Sag aus und sagt, in welche Richtung der Federteller muss.";
+    return;
+  }
+  if (L2 > L1 || L3 > L1 || L3 > L2){
+    out.textContent = "Die Maße passen nicht zusammen. L1 muss der größte Wert sein, L3 der kleinste: je mehr Last, desto kürzer der Abstand.";
+    return;
+  }
+  const stat = r1(L1 - L2), rider = r1(L1 - L3);
+  const [sLo, sHi] = lastTargets.stat, [rLo, rHi] = lastTargets.rider;
+  const inS = stat >= sLo && stat <= sHi, inR = rider >= rLo && rider <= rHi;
+
+  let msg = `<b>Statischer Sag ${num(stat)} mm</b> (Ziel ${sLo}–${sHi}) · <b>Fahrer-Sag ${num(rider)} mm</b> (Ziel ${rLo}–${rHi})<br>`;
+
+  if (!inR){
+    const target = rider > rHi ? rHi : rLo;
+    const turns = Math.max(0.5, Math.round(Math.abs(rider - target) / MM_PER_TURN * 2) / 2);
+    msg += rider > rHi
+      ? `Zu viel Fahrer-Sag. Federteller rund ${num(turns)} Umdrehungen festdrehen, dann neu messen.`
+      : `Zu wenig Fahrer-Sag. Federteller rund ${num(turns)} Umdrehungen lösen, dann neu messen.`;
+    msg += ` Eine Umdrehung verschiebt den Sag um etwa ${num(MM_PER_TURN)} mm, je nach Umlenkung auch mehr.`;
+  } else if (!inS){
+    msg += stat < sLo
+      ? `Fahrer-Sag stimmt, statischer Sag ist zu klein: die Feder ist zu weich und muss über die Vorspannung überstützt werden. Eine härtere Feder ist fällig.`
+      : `Fahrer-Sag stimmt, statischer Sag ist zu groß: die Feder ist zu hart für dein Gewicht. Eine weichere Feder ist fällig.`;
+  } else {
+    msg += `Beide Werte liegen im Zielbereich. Die Feder passt zu deinem Gewicht, die Vorspannung stimmt.`;
+  }
+  out.innerHTML = msg;
+}
+
+function setTargets(statBand, riderBand){
+  lastTargets = {stat: statBand, rider: riderBand};
+  renderSagCheck();
+}
+
+/* ---- Berechnen ---- */
+function compute(s){
+  const bike = BIKES[s.bike];
+  const totalW = s.bodyWeight + s.gearWeight;
+  const target = targetSprings(bike, totalW, s.bodyWeight);
+  const inst = installedSprings(bike, s, target);
+  return {
+    bike, totalW, target, inst,
+    verdict: springVerdict(bike, inst, target),
+    sag: calcSag(bike, s.surface, s.features, s.profile),
+    geo: calcGeometry(bike, s.surface, s.features),
+    cl:  calcClickers(bike, s.skill, s.style, s.surface, s.condition, s.moisture, s.profile, s.temp, s.duration, s.features)
+  };
+}
+
+function computeSupermoto(s){
+  const bike = BIKES[s.bike];
+  const totalW = s.bodyWeight + s.gearWeight;
+  const target = targetSprings(bike, totalW, s.bodyWeight);
+  const inst = installedSprings(bike, s, target);
+  return {
+    bike, totalW, target, inst,
+    verdict: springVerdict(bike, inst, target),
+    springs: smSprings(bike, target),
+    sag:     smSag(bike, s.lowered),
+    geo:     smGeometry(s.lowered),
+    preload: smPreload(s.lowered),
+    cl:      smClickers(bike, s.skill, s.style, s.lowered)
+  };
+}
+
+/* Zusatz für die Kopfzeile: was verbaut ist. */
+function installedTxt(bike, inst){
+  if (bike.starkClasses) return ` · Klasse ${inst.label} verbaut`;
+  if (isAirFork(bike))   return ` · ${num(inst.shock)} N/mm hinten, Luftgabel`;
+  return ` · ${num(inst.shock)} / ${fmt1(inst.fork)} N/mm verbaut`;
+}
+
+function renderVerdict(v){
+  const box = $("springVerdict");
+  box.className = v.level === "ok" ? "okbox" : "warnbox";
+  box.hidden = false;
+  box.textContent = v.text;
+}
+
+function renderReasons(reasons){
+  const list = $("reasonsList");
+  list.innerHTML = "";
+  if (!reasons.length){
+    list.innerHTML = `<li>Keine Anpassung nötig. Deine Angaben entsprechen der Werksbasis.</li>`;
+    return;
+  }
+  reasons.forEach(r=>{
+    const li = document.createElement("li");
+    li.innerHTML = `<b>${r.title}</b><br>${r.text}`;
+    list.appendChild(li);
+  });
+}
+
+function renderClickFlags(flags){
+  const box = $("clickFlags");
+  if (!box) return;
+  if (!flags || !flags.length){ box.innerHTML = ""; return; }
+  box.innerHTML = flags.map(fl =>
+    `<div class="flagbox ${fl.level === "warn" ? "warn" : "info"}"><b>${esc(fl.title)}</b><br>${esc(fl.text)}</div>`
+  ).join("");
+}
+
+/* ---- Gelände ---- */
+function renderOffroad(s){
+  const {bike, totalW, target, inst, verdict, sag, geo, cl} = compute(s);
+  const brand = BRANDS[bike.brand];
+  const air = isAirFork(bike);
+
+  ["forkSpring","shockSpring","forkTarget","shockTarget","staticSag","riderSag","geoValue"]
+    .forEach(id => $(id).classList.remove("range"));
+  $("geoHead").textContent = "Gabelüberstand";
+  $("geoLabel").textContent = "Gabel durchgesteckt um";
+  $("preloadBlock").hidden = true;
+
+  $("banner").textContent =
+    `${brand.name} ${bike.name} · Gesamtgewicht ${fmt1(totalW)} kg · ${s.skill} · `
+    + `${SURFACES[s.surface].label}, ${CONDITIONS[s.condition].toLowerCase()}${installedTxt(bike, inst)}`;
+
+  const warn = weightWarning(bike, totalW);
+  $("warnBox").hidden = !warn;
+  $("warnBox").textContent = warn || "";
+
+  /* verbaut */
+  $("forkSpringLabel").textContent = air ? "Gabel-Luftdruck aktuell" : "Gabelfeder verbaut";
+  $("forkSpring").textContent = air ? "nach Ziel" : fmt1(inst.fork) + " N/mm";
+  $("forkSpringNote").textContent = air
+    ? `Eine Luftgabel hat keine Feder. Der Druck ist die Ersatzgröße und steht rechts als Zielwert.`
+    : (bike.starkClasses
+        ? `Klasse ${inst.label}, wie im Schritt „Verbautes Fahrwerk" angegeben.`
+        : `So, wie du es angegeben hast. Serie wären ${fmt1(bike.base)} N/mm bei ${bike.baseWeight} kg.`);
+
+  $("forkTargetLabel").textContent = air ? "Gabel-Luftdruck Ziel" : "Gabelfeder Ziel";
+  $("forkTarget").textContent = air ? fmt1(target.fork) + " bar" : fmt1(target.fork) + " N/mm";
+  $("forkTargetNote").textContent = air
+    ? `Für ${fmt1(totalW)} kg Gesamtgewicht. Immer kalt und mit demselben Manometer prüfen.`
+    : `Rechnerisch passend für ${fmt1(totalW)} kg Gesamtgewicht.`;
+
+  $("shockSpring").textContent = num(inst.shock) + " N/mm";
+  $("shockSpringNote").textContent = bike.starkClasses
+    ? `Klasse ${inst.label} liefert ${numq(inst.shock)} N/mm hinten.`
+    : `So, wie du es angegeben hast. Serie wären ${num(bike.shockBase)} N/mm bei ${bike.baseWeight} kg.`;
+
+  $("shockTarget").textContent = num(target.shock) + " N/mm";
+  $("shockTargetNote").textContent = bike.starkClasses
+    ? `Stark sieht für ${fmt1(s.bodyWeight)} kg Körpergewicht die Klasse ${STARK_CLASSES[target.classIdx].label} vor.`
+    : `Rechnerisch passend für ${fmt1(totalW)} kg Gesamtgewicht, auf lieferbare Katalogschritte gerundet.`;
+
+  renderVerdict(verdict);
+
+  /* Sag */
+  $("staticSag").textContent = sag.stat + " mm";
+  $("staticSagNote").textContent = sag.statR;
+  $("riderSag").textContent = sag.rider + " mm";
+  $("riderSagNote").textContent = sag.riderR;
+  setTargets([sag.stat - 2, sag.stat + 2], [sag.rider - 2, sag.rider + 2]);
+
+  /* Geometrie */
+  $("geoValue").textContent = geo.mm + " mm";
+  $("geoNote").textContent = geo.note;
+  $("geoSteer").textContent = geo.steer;
+  $("geoRear").textContent = sag.rider >= 106 ? "Tiefer" : sag.rider <= 103 ? "Höher" : "Neutral";
+  $("geoRearNote").textContent = `Ergibt sich aus dem Fahrer-Sag von ${sag.rider} mm.`;
+
+  /* Klicker */
+  $("forkClickHead").textContent = "Gabel — " + bike.susp;
+  $("shockClickHead").textContent = "Federbein — " + brand.name;
+  $("shockClickDesc").textContent = shockDesc(bike);
+
+  const v = cl.values, d = cl.deltas, b = cl.base, u = cl.units;
+  const gc = k => gaugeCard(k, v[k], b[k], d[k], u[k]);
+  $("forkGauges").innerHTML  = gc("fork_comp") + gc("fork_reb");
+  $("shockGauges").innerHTML = gc("shock_hs_comp") + gc("shock_ls_comp") + gc("shock_ls_reb") + gc("shock_hs_reb");
+
+  renderReasons(cl.reasons);
+  renderClickFlags(cl.flags);
+  lastSetup = {values: cl.values, units: cl.units};
+  renderSymptomOut();
+}
+
+/* ---- Supermoto ---- */
+function renderSupermoto(s){
+  const {bike, totalW, target, inst, verdict, springs, sag, geo, preload, cl} = computeSupermoto(s);
+  const brand = BRANDS[bike.brand];
+  const air = springs.isAir;
+
+  $("banner").textContent =
+    `${brand.name} ${bike.name} · Gesamtgewicht ${fmt1(totalW)} kg · ${s.skill} · Supermoto / Straße, `
+    + `${s.lowered ? "Federweg gekürzt" : "Serienfederweg"}${installedTxt(bike, inst)}`;
+
+  const warn = weightWarning(bike, totalW);
+  $("warnBox").hidden = !warn;
+  $("warnBox").textContent = warn || "";
+
+  const f = springs.fork, sh = springs.shock;
+
+  /* links: verbaut */
+  $("forkSpring").classList.remove("range");
+  $("shockSpring").classList.remove("range");
+  $("forkSpringLabel").textContent = air ? "Gabel-Luftdruck aktuell" : "Gabelfeder verbaut";
+  $("forkSpring").textContent = air ? "nach Ziel" : fmt1(inst.fork) + " N/mm";
+  $("forkSpringNote").textContent = air
+    ? "Luftgabel: kein Federtausch, nur Druck. Der Zielbereich steht rechts."
+    : `Das steckt im Motorrad. Für Asphalt liegt der Zielbereich darüber.`;
+
+  $("shockSpring").textContent = num(inst.shock) + " N/mm";
+  $("shockSpringNote").textContent = `Das steckt im Motorrad. Für Asphalt liegt der Zielbereich darüber.`;
+
+  /* rechts: Straßen-Zielband */
+  $("forkTargetLabel").textContent = air ? "Gabeldruck Ziel Straße" : "Gabelfeder Ziel Straße";
+  $("forkTarget").textContent = air ? rangeTxt(fmt1(f[0]), fmt1(f[1]), "bar") : rangeTxt(fmt1(f[0]), fmt1(f[1]), "N/mm");
+  $("forkTarget").classList.add("range");
+  $("forkTargetNote").textContent = air
+    ? `Rund 0,2–0,4 bar über der Geländeeinstellung von ${fmt1(springs.geo.fork)} bar.`
+    : `Rund 0,3–0,5 N/mm über der Geländerate von ${fmt1(springs.geo.fork)} N/mm für dieses Gewicht.`;
+
+  $("shockTarget").textContent = rangeTxt(num(sh[0]), num(sh[1]), "N/mm");
+  $("shockTarget").classList.add("range");
+  $("shockTargetNote").textContent =
+    `Rund 4–8 N/mm über der Geländerate von ${num(springs.geo.shock)} N/mm, auf lieferbare Katalogschritte gerundet. `
+    + `Unteres Ende bei ruhigem Stil, oberes bei Serienfederweg und viel Anlupfen.`;
+
+  renderVerdict(verdict);
+
+  /* Sag */
+  $("staticSag").textContent = rangeTxt(sag.stat[0], sag.stat[1], "mm");
+  $("staticSag").classList.add("range");
+  $("staticSagNote").textContent = sag.statR;
+  $("riderSag").textContent = rangeTxt(sag.rider[0], sag.rider[1], "mm");
+  $("riderSag").classList.add("range");
+  $("riderSagNote").textContent = sag.riderR;
+
+  $("preloadBlock").hidden = false;
+  $("preloadValue").textContent = rangeTxt(preload.r[0], preload.r[1], "mm");
+  $("preloadNote").textContent = preload.note;
+  setTargets(sag.stat, sag.rider);
+
+  /* Geometrie */
+  $("geoHead").textContent = "Gabelposition";
+  $("geoLabel").textContent = geo.label;
+  $("geoValue").textContent = geo.txt;
+  $("geoValue").classList.add("range");
+  $("geoNote").textContent = geo.note;
+  $("geoSteer").textContent = geo.steer;
+  $("geoRear").textContent = "Höher";
+  $("geoRearNote").textContent = `Ergibt sich aus dem Fahrer-Sag von ${sag.rider[0]}–${sag.rider[1]} mm und der straffen Vorspannung.`;
+
+  /* Klicker */
+  $("forkClickHead").textContent = "Gabel — " + bike.susp;
+  $("shockClickHead").textContent = "Federbein — " + brand.name;
+  $("shockClickDesc").textContent = shockDesc(bike);
+  const v = cl.values, rg = cl.ranges, d = cl.deltas, b = cl.base, u = cl.units;
+  const gr = k => gaugeCardRange(k, v[k], rg[k], b[k], d[k], u[k]);
+  $("forkGauges").innerHTML  = gr("fork_comp") + gr("fork_reb");
+  $("shockGauges").innerHTML = gr("shock_hs_comp") + gr("shock_ls_comp") + gr("shock_ls_reb") + gr("shock_hs_reb");
+
+  renderReasons(cl.reasons);
+  renderClickFlags(null);
+  lastSetup = {values: cl.values, units: cl.units};
+  renderSymptomOut();
+}
+
+function renderResults(s){
+  if (s.mode === "supermoto") renderSupermoto(s); else renderOffroad(s);
+  $("results").style.display = "block";
+}
+
+/* Vom Wizard aus: rechnen und den Ergebnis-Screen zeigen. */
+function runCalc(){
+  if (!(state.bodyWeight > 0)){ toast("Körpergewicht eintragen"); return; }
+  state.bike = state.bike in BIKES ? state.bike : "stark-varg-mx";
+  renderHeader();
+  renderResults(state);
+  $("wizard").style.display = "none";
+  window.scrollTo({top:0, behavior:"smooth"});
+}
+
+["l1","l2","l3"].forEach(id => $(id).addEventListener("input", renderSagCheck));
+
+/* =====================================================================
+   NOTIZEN & SERVICE
+   ===================================================================== */
+const SVC_PRESETS = [
+  {id:"oil",      name:"Motoröl wechseln",        days:30,  hours:15, note:"Bei 4-Takt-Rennmotoren nach jedem Renntag, spätestens nach 15 Betriebsstunden."},
+  {id:"gearoil",  name:"Getriebeöl wechseln",     days:60,  hours:30, note:"Getrennter Ölhaushalt bei den meisten MX-Motoren. Deutlich länger haltbar als Motoröl."},
+  {id:"airfilter",name:"Luftfilter reinigen",     days:7,   hours:3,  note:"Nach jedem staubigen Tag. Der Filter ist das billigste Bauteil im Motor."},
+  {id:"forkservice",name:"Gabelservice",          days:180, hours:40, note:"Öl und Dichtungen. Bei Rennbetrieb eher alle 20 bis 30 Stunden."},
+  {id:"shockservice",name:"Federbeinservice",     days:180, hours:50, note:"Stickstoff, Öl, Dichtkopf. Wird häufiger vergessen als die Gabel."},
+  {id:"chain",    name:"Kettensatz prüfen",       days:14,  hours:10, note:"Spannung, Verschleiß, Kettenräder. Eine lose Kette frisst die Schwinge."},
+  {id:"brakefluid",name:"Bremsflüssigkeit",       days:365, hours:0,  note:"DOT 4 zieht Wasser. Einmal jährlich, unabhängig von den Stunden."},
+  {id:"coolant",  name:"Kühlflüssigkeit",         days:365, hours:0,  note:"Einmal im Jahr, oder wenn sie trüb wird."},
+  {id:"bearings", name:"Radlager & Schwingenlager", days:180, hours:40, note:"Spiel prüfen, fetten. Nach jeder Waschorgie mit dem Hochdruckreiniger kritisch."},
+  {id:"spark",    name:"Zündkerze",               days:90,  hours:25, note:"Billig. Eine alte Kerze kostet Startverhalten und Gasannahme."},
+  {id:"piston",   name:"Kolben / Zylinder",       days:365, hours:60, note:"2-Takt eher 30 bis 40 Stunden, 4-Takt-Rennmotoren 60 bis 80. Herstellerangabe schlägt Faustregel."},
+  {id:"tires",    name:"Reifen prüfen",           days:14,  hours:8,  note:"Profil, Stollenrisse, Speichenspannung. Reifendruck gehört vor jede Ausfahrt."},
+  {id:"custom",   name:"Eigener Service-Punkt",   days:30,  hours:0,  note:""}
+];
+
+const NOTE_TYPES = {
+  note:   {label:"Notiz",    cls:""},
+  service:{label:"Service",  cls:"accent"},
+  setup:  {label:"Setup",    cls:"accent"},
+  ride:   {label:"Training", cls:"ok"},
+  race:   {label:"Rennen",   cls:"ok"},
+  issue:  {label:"Defekt",   cls:"bad"},
+  part:   {label:"Neues Teil", cls:"warn"}
+};
+
+let notes = [];
+let services = [];
+let noteFilter = "all";
+
+async function loadNotes(){
+  try { notes    = JSON.parse(await Store.get(K.notes) || "[]"); } catch(e){ notes = []; }
+  try { services = JSON.parse(await Store.get(K.svc)   || "[]"); } catch(e){ services = []; }
+  if (!Array.isArray(notes)) notes = [];
+  if (!Array.isArray(services)) services = [];
+  renderServices(); renderNoteFilter(); renderNotes();
+}
+async function persistNotes(){ await Store.set(K.notes, JSON.stringify(notes)); renderNotes(); renderNoteFilter(); }
+async function persistServices(){ await Store.set(K.svc, JSON.stringify(services)); renderServices(); }
+
+/* ---- Service-Punkte ---- */
+function svcStatus(s){
+  const due = addDays(s.last, s.days);
+  const left = daysUntil(due);
+  const pct = clamp(Math.round((1 - left / s.days) * 100), 0, 100);
+  const level = left < 0 ? "due" : left <= Math.max(3, Math.round(s.days * 0.15)) ? "soon" : "ok";
+  return {due, left, pct, level};
+}
+
+function renderServices(){
+  const box = $("svcList");
+  box.innerHTML = "";
+  if (!services.length){
+    box.innerHTML = `<div class="empty">Noch kein Service-Punkt angelegt. Leg einen an, und die App sagt dir, wann er wieder fällig ist.</div>`;
+    return;
+  }
+  const withStatus = services.map(s => ({s, st: svcStatus(s)}));
+  withStatus.sort((a,b) => a.st.left - b.st.left);
+
+  withStatus.forEach(({s, st})=>{
+    const el = document.createElement("div");
+    el.className = "svc " + (st.level === "ok" ? "" : st.level);
+    const pill = st.level === "due" ? `<span class="tagpill bad">Überfällig</span>`
+      : st.level === "soon" ? `<span class="tagpill warn">Bald fällig</span>`
+      : `<span class="tagpill ok">Alles gut</span>`;
+    const leftTxt = st.left < 0
+      ? `seit ${Math.abs(st.left)} ${Math.abs(st.left) === 1 ? "Tag" : "Tagen"} überfällig`
+      : st.left === 0 ? "heute fällig"
+      : `noch ${st.left} ${st.left === 1 ? "Tag" : "Tage"}`;
+    const hoursTxt = s.hoursEvery > 0
+      ? ` · alle ${num(s.hoursEvery)} h${s.hours > 0 ? `, zuletzt bei ${num(s.hours)} h` : ""}`
+      : "";
+
+    el.innerHTML = `
+      <div class="svc-top"><div class="svc-name"></div>${pill}</div>
+      <div class="svc-bar"><i style="width:${st.pct}%"></i></div>
+      <div class="svc-meta">
+        <span>Zuletzt ${fmtDate(s.last)}${hoursTxt}</span>
+        <span>Fällig ${fmtDate(st.due)}</span>
+      </div>
+      <div class="svc-meta"><span>${esc(leftTxt)} · alle ${s.days} Tage</span></div>
+      ${s.note ? `<div class="entry-text">${esc(s.note)}</div>` : ""}
+      <div class="svc-actions">
+        <button class="icon-btn" data-act="done">Heute erledigt</button>
+        <button class="icon-btn danger" data-act="del">Löschen</button>
+      </div>`;
+    el.querySelector(".svc-name").textContent = s.name;
+
+    el.querySelector('[data-act="done"]').addEventListener("click", async ()=>{
+      s.last = todayISO();
+      if (s.hoursEvery > 0 && s.hours > 0) s.hours = r1(s.hours + s.hoursEvery);
+      await persistServices();
+      notes.unshift({
+        id: uid(), date: todayISO(), type:"service",
+        title: s.name, text:"Automatisch aus den Service-Intervallen eingetragen.",
+        hours: s.hours || 0, next: addDays(s.last, s.days)
+      });
+      await persistNotes();
+      toast("Erledigt, nächster Termin steht");
+    });
+    el.querySelector('[data-act="del"]').addEventListener("click", async ()=>{
+      services = services.filter(x => x.id !== s.id);
+      await persistServices();
+      toast("Service-Punkt gelöscht");
+    });
+    box.appendChild(el);
+  });
+}
+
+/* Vorlagen-Auswahl */
+(function initSvcPreset(){
+  const sel = $("svcPreset");
+  SVC_PRESETS.forEach(p=>{
+    const o = document.createElement("option");
+    o.value = p.id; o.textContent = p.name;
+    sel.appendChild(o);
+  });
+  const sync = ()=>{
+    const p = SVC_PRESETS.find(x => x.id === sel.value) || SVC_PRESETS[0];
+    $("svcNameField").hidden = p.id !== "custom";
+    if (p.id !== "custom"){
+      const ev = $("svcEvery");
+      const hit = Array.from(ev.options).find(o => o.value === String(p.days));
+      if (hit){ ev.value = String(p.days); $("svcDaysField").hidden = true; }
+      else { ev.value = "custom"; $("svcDaysField").hidden = false; $("svcDays").value = p.days; }
+      $("svcHoursEvery").value = p.hours > 0 ? p.hours : "";
+    }
+  };
+  sel.addEventListener("change", sync);
+  $("svcEvery").addEventListener("change", ()=>{
+    $("svcDaysField").hidden = $("svcEvery").value !== "custom";
+  });
+  sync();
+})();
+
+$("svcAddBtn").addEventListener("click", async ()=>{
+  const p = SVC_PRESETS.find(x => x.id === $("svcPreset").value) || SVC_PRESETS[0];
+  const name = p.id === "custom" ? $("svcName").value.trim() : p.name;
+  if (!name){ toast("Name eintragen"); return; }
+  const ev = $("svcEvery").value;
+  const days = ev === "custom" ? clamp(parseInt($("svcDays").value, 10) || 30, 1, 2000) : parseInt(ev, 10);
+  const last = $("svcLast").value || todayISO();
+  services.push({
+    id: uid(), name, last, days,
+    hours: parseFloat($("svcHours").value) || 0,
+    hoursEvery: parseFloat($("svcHoursEvery").value) || 0,
+    note: p.id === "custom" ? "" : p.note
+  });
+  await persistServices();
+  $("svcName").value = ""; $("svcHours").value = "";
+  $("svcAdd").open = false;
+  toast("Service-Punkt angelegt");
+});
+
+/* ---- Notizen ---- */
+function renderNoteFilter(){
+  const bar = $("noteFilter");
+  bar.innerHTML = "";
+  const counts = {all: notes.length};
+  Object.keys(NOTE_TYPES).forEach(t => counts[t] = notes.filter(n => n.type === t).length);
+  const entries = [["all","Alle"]].concat(
+    Object.entries(NOTE_TYPES).filter(([t]) => counts[t] > 0).map(([t,v]) => [t, v.label]));
+  entries.forEach(([id,label])=>{
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "chip";
+    b.setAttribute("aria-pressed", String(noteFilter === id));
+    b.textContent = `${label} ${counts[id]}`;
+    b.addEventListener("click", ()=>{ noteFilter = id; renderNoteFilter(); renderNotes(); });
+    bar.appendChild(b);
+  });
+  bar.style.display = notes.length ? "flex" : "none";
+}
+
+function renderNotes(){
+  const box = $("noteList");
+  box.innerHTML = "";
+  $("noteTools").style.display = notes.length ? "flex" : "none";
+  if (!notes.length){
+    box.innerHTML = `<div class="empty">Noch keine Notiz. Schreib auf, was du geschraubt hast, dann weißt du in drei Monaten noch, warum das Federbein anders klingt.</div>`;
+    return;
+  }
+  const list = notes
+    .filter(n => noteFilter === "all" || n.type === noteFilter)
+    .slice()
+    .sort((a,b) => (b.date || "").localeCompare(a.date || ""));
+
+  if (!list.length){
+    box.innerHTML = `<div class="empty">Keine Notiz in dieser Kategorie.</div>`;
+    return;
+  }
+
+  list.forEach(n=>{
+    const t = NOTE_TYPES[n.type] || NOTE_TYPES.note;
+    const el = document.createElement("div");
+    el.className = "entry";
+    let nextPill = "";
+    if (n.next){
+      const left = daysUntil(n.next);
+      const cls = left < 0 ? "bad" : left <= 7 ? "warn" : "ok";
+      const txt = left < 0 ? `überfällig seit ${Math.abs(left)} Tagen`
+        : left === 0 ? "heute fällig"
+        : `in ${left} ${left === 1 ? "Tag" : "Tagen"}`;
+      nextPill = `<span class="tagpill ${cls}">Nächster Service ${fmtDate(n.next)} · ${esc(txt)}</span>`;
+    }
+    el.innerHTML = `
+      <div class="entry-top">
+        <span class="tagpill ${t.cls}">${t.label}</span>
+        <span class="entry-date">${fmtDate(n.date)}</span>
+      </div>
+      <div class="entry-title"></div>
+      ${n.text ? `<div class="entry-text"></div>` : ""}
+      <div class="entry-foot">
+        <div class="entry-meta">${n.hours > 0 ? `${num(n.hours)} Betriebsstunden` : ""}</div>
+        <button class="icon-btn danger" data-act="del">Löschen</button>
+      </div>
+      ${nextPill ? `<div style="margin-top:8px;">${nextPill}</div>` : ""}`;
+    el.querySelector(".entry-title").textContent = n.title;
+    if (n.text) el.querySelector(".entry-text").textContent = n.text;
+    el.querySelector('[data-act="del"]').addEventListener("click", async ()=>{
+      notes = notes.filter(x => x.id !== n.id);
+      await persistNotes();
+      toast("Notiz gelöscht");
+    });
+    box.appendChild(el);
+  });
+}
+
+$("noteAddBtn").addEventListener("click", async ()=>{
+  const title = $("noteTitle").value.trim();
+  if (!title){ toast("Titel eintragen"); return; }
+  notes.unshift({
+    id: uid(),
+    date: $("noteDate").value || todayISO(),
+    type: $("noteType").value,
+    title,
+    text: $("noteText").value.trim(),
+    hours: parseFloat($("noteHours").value) || 0,
+    next: $("noteNext").value || ""
+  });
+  if (notes.length > 300) notes = notes.slice(0, 300);
+  await persistNotes();
+  $("noteTitle").value = ""; $("noteText").value = "";
+  $("noteHours").value = ""; $("noteNext").value = "";
+  toast("Notiz gespeichert");
+});
+
+$("notesExport").addEventListener("click", ()=>{
+  download("suspension-lab-notizen.json", JSON.stringify({notes, services}, null, 2));
+  toast("Datei exportiert");
+});
+
+function download(name, text){
+  const blob = new Blob([text], {type:"application/json"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+/* =====================================================================
+   TRAININGSTAG: ÜBUNGEN + PACKLISTE
+   ===================================================================== */
+const EX_PRESETS = [
+  {cat:"Kurven & Linien", items:[
+    {id:"ex_sitcorner", l:"Kurven sitzend", s:"Innenbein raus, Fußspitze nach vorn, Ellbogen hoch. Gas ab der Kurvenmitte."},
+    {id:"ex_standcorner", l:"Kurven stehend", s:"Nur auf breiten, flachen Kurven. Zwingt zu sauberer Gewichtsverlagerung."},
+    {id:"ex_berm", l:"Steilkurven ausfahren", s:"Möglichst hoch anfahren, im Anlieger Gas aufmachen, das Heck sackt ins Federbein."},
+    {id:"ex_hairpin", l:"Spitzkehren", s:"Spät bremsen, das Motorrad unter dir umlegen, Blick schon am Ausgang."},
+    {id:"ex_ruts", l:"Rillen und Ruts", s:"Nicht rausschauen, in die Rille schauen. Beide Räder in einer Spur halten."},
+    {id:"ex_lines", l:"Linienwahl variieren", s:"Dieselbe Kurve dreimal auf drei Linien. Stoppuhr entscheidet."},
+    {id:"ex_offcamber", l:"Off-Camber-Kurven", s:"Gewicht nach außen aufs Fußrast, Motorrad aufrecht, sanftes Gas."}
+  ]},
+  {cat:"Bremsen & Gas", items:[
+    {id:"ex_brakepoint", l:"Bremspunkte finden", s:"Markierung setzen, jede Runde einen Meter später bremsen, bis es kippt."},
+    {id:"ex_trailbrake", l:"Bremsen bis in die Kurve", s:"Vorderbremse gelöst, während das Motorrad einlenkt. Front bleibt eingedrückt."},
+    {id:"ex_rearbrake", l:"Hinterradbremse dosieren", s:"Nur mit dem Fuß bremsen, ohne dass das Heck ausbricht."},
+    {id:"ex_throttle", l:"Gleichmäßige Gasannahme", s:"Aus der Kurve heraus in einer Bewegung öffnen. Kein Nachdrücken."},
+    {id:"ex_clutch", l:"Kupplungskontrolle", s:"Zwei Finger, halbe Wege. Drehmoment aufbauen, bevor das Rad greift."},
+    {id:"ex_start", l:"Starts üben", s:"Gate, Drehzahl, Kupplungspunkt, Blick auf die erste Kurve. Zehn Wiederholungen."},
+    {id:"ex_shift", l:"Schaltpunkte", s:"Ohne Kupplung schalten, ohne dass das Fahrwerk zuckt."}
+  ]},
+  {cat:"Sprünge", items:[
+    {id:"ex_takeoff", l:"Absprung sauber treffen", s:"Konstantes Gas über den Absprung. Nicht am Kicker zumachen."},
+    {id:"ex_landing", l:"Landungen abfangen", s:"Beide Räder gleichzeitig, Knie weich, Blick weit voraus."},
+    {id:"ex_series", l:"Sprungserien", s:"Rhythmus zählen. Doubles und Triples erst zerlegen, dann verbinden."},
+    {id:"ex_scrub", l:"Scrub anlegen", s:"Nur wenn Absprung und Landung sitzen. Erst flach, dann tiefer."},
+    {id:"ex_airbrake", l:"Fluglage korrigieren", s:"Hinterradbremse senkt die Front, Gas hebt sie. Über den Tisch üben."},
+    {id:"ex_step", l:"Stufen und Tabletops", s:"Kurze Anfahrt, viel Federweg. Landung schon beim Absprung ansteuern."}
+  ]},
+  {cat:"Boden & Wellen", items:[
+    {id:"ex_whoops", l:"Whoops durchziehen", s:"Stehend, Gewicht hinten, konstantes Gas. Nicht in die Täler eintauchen."},
+    {id:"ex_brakebumps", l:"Bremswellen", s:"Locker bleiben, die Gabel arbeiten lassen. Griff nicht verkrampfen."},
+    {id:"ex_roots", l:"Wurzeln und Steine", s:"Klettern statt abprallen. Leichtes Anheben der Front vor der Kante."},
+    {id:"ex_sand", l:"Sand", s:"Stehend, weit hinten, Gas nicht zurücknehmen. Das Heck lenkt."},
+    {id:"ex_hill", l:"Bergauf", s:"Früh Schwung holen, Gewicht nach vorn, Gas konstant halten."},
+    {id:"ex_downhill", l:"Bergab kontrolliert", s:"Beide Bremsen dosiert, Gewicht weit hinten, Blick nicht aufs Vorderrad."}
+  ]},
+  {cat:"Körper & Kopf", items:[
+    {id:"ex_position", l:"Sitzposition und Grundhaltung", s:"Eine Runde nur auf Ellbogen, Knie und Blick achten. Nichts anderes."},
+    {id:"ex_look", l:"Blickführung", s:"Immer zwei Elemente voraus. Wo du hinschaust, fährst du hin."},
+    {id:"ex_relax", l:"Locker bleiben", s:"Gegen Arm Pump: Griffdruck bewusst lösen, Schultern fallen lassen."},
+    {id:"ex_balance", l:"Balance und Wheelie", s:"Im Schritttempo, sitzend, mit der Hinterradbremse als Sicherung."},
+    {id:"ex_breath", l:"Atmung", s:"Auf der Geraden bewusst zweimal tief. Kostet nichts, bringt eine Runde."},
+    {id:"ex_endurance", l:"Ausdauer", s:"Motos in voller Renndistanz. Der Kopf wird vor den Armen müde."}
+  ]},
+  {cat:"Renn-Skills", items:[
+    {id:"ex_laptime", l:"Konstante Rundenzeiten", s:"Fünf Runden mit weniger als einer Sekunde Streuung schlagen fünf schnelle."},
+    {id:"ex_holeshot", l:"Holeshot bis Kurve 1", s:"Start plus erste Kurve als ein einziges Element trainieren."},
+    {id:"ex_pass", l:"Überholen", s:"Innen anbremsen, außen ausfahren. Beides gegen einen Trainingspartner."},
+    {id:"ex_traffic", l:"Verkehr lesen", s:"Hinter jemandem fahren, ohne dessen Linie zu kopieren."},
+    {id:"ex_pace", l:"Renntempo halten", s:"20 Minuten am Limit minus fünf Prozent. Das ist Renntempo."}
+  ]}
+];
+
+const PK_PRESETS = [
+  {cat:"Ausrüstung", items:[
+    {id:"pk_helmet", l:"Helm"}, {id:"pk_goggles", l:"Brille", s:"Plus Tear-Offs oder Roll-Offs"},
+    {id:"pk_boots", l:"Stiefel"}, {id:"pk_gloves", l:"Handschuhe", s:"Zwei Paar, eins wird nass"},
+    {id:"pk_jersey", l:"Jersey und Hose"}, {id:"pk_chest", l:"Brustpanzer"},
+    {id:"pk_knee", l:"Knieschützer oder Orthesen"}, {id:"pk_neck", l:"Nackenstütze"},
+    {id:"pk_socks", l:"Socken"}, {id:"pk_kidney", l:"Nierengurt"},
+    {id:"pk_spare_goggles", l:"Ersatzbrille"}, {id:"pk_rain", l:"Regenjacke"}
+  ]},
+  {cat:"Motorrad", items:[
+    {id:"pk_bike", l:"Motorrad", s:"Kette gespannt, Reifendruck geprüft"},
+    {id:"pk_stand", l:"Montageständer"},
+    {id:"pk_tiedown", l:"Spanngurte", s:"Vier Stück, plus Lenkerschutz"},
+    {id:"pk_fuel", l:"Sprit im Kanister"},
+    {id:"pk_funnel", l:"Trichter"},
+    {id:"pk_numberplate", l:"Startnummern"}
+  ]},
+  {cat:"Ersatzteile", items:[
+    {id:"pk_lever", l:"Kupplungs- und Bremshebel"},
+    {id:"pk_grips", l:"Griffe und Griffkleber"},
+    {id:"pk_chain", l:"Kettenschloss"},
+    {id:"pk_tube", l:"Schlauch vorn und hinten"},
+    {id:"pk_spark", l:"Zündkerze"},
+    {id:"pk_filter", l:"Zweiter Luftfilter", s:"Geölt und in der Tüte"},
+    {id:"pk_bolts", l:"Schrauben-Sortiment"},
+    {id:"pk_cable", l:"Kupplungszug"}
+  ]},
+  {cat:"Werkzeug", items:[
+    {id:"pk_toolbox", l:"Werkzeugkoffer"},
+    {id:"pk_torque", l:"Drehmomentschlüssel"},
+    {id:"pk_compressor", l:"Luftkompressor", s:"12 V für den Anhänger, plus Adapter"},
+    {id:"pk_gauge", l:"Reifendruckprüfer", s:"Immer derselbe, sonst sind die Werte wertlos"},
+    {id:"pk_pump", l:"Gabelpumpe", s:"Nur bei Luftgabel, mit Manometer"},
+    {id:"pk_clicker", l:"Klicker-Schraubendreher"},
+    {id:"pk_tirelever", l:"Reifenheber und Felgenschutz"},
+    {id:"pk_zip", l:"Kabelbinder und Panzertape"},
+    {id:"pk_wire", l:"Sicherungsdraht"},
+    {id:"pk_tape", l:"Maßband", s:"Für den Sag"},
+    {id:"pk_gloves_work", l:"Arbeitshandschuhe"},
+    {id:"pk_light", l:"Stirnlampe"}
+  ]},
+  {cat:"Flüssigkeiten & Öle", items:[
+    {id:"pk_engineoil", l:"Motoröl"},
+    {id:"pk_gearoil", l:"Getriebeöl"},
+    {id:"pk_forkoil", l:"Gabelöl", s:"Nur bei geplantem Service"},
+    {id:"pk_chainlube", l:"Kettenspray"},
+    {id:"pk_filteroil", l:"Luftfilteröl und Reiniger"},
+    {id:"pk_brakefluid", l:"Bremsflüssigkeit"},
+    {id:"pk_coolant", l:"Kühlflüssigkeit"},
+    {id:"pk_contact", l:"Kontaktspray und Fett"},
+    {id:"pk_cleaner", l:"Bremsenreiniger"}
+  ]},
+  {cat:"Elektronik", items:[
+    {id:"pk_camera", l:"Kamera oder GoPro"},
+    {id:"pk_mount", l:"Halterung", s:"Helm, Lenker, Stativ"},
+    {id:"pk_batteries", l:"Ersatzakkus"},
+    {id:"pk_sd", l:"Speicherkarten"},
+    {id:"pk_powerbank", l:"Powerbank und Kabel"},
+    {id:"pk_laptimer", l:"Rundenzeitmesser"},
+    {id:"pk_phone", l:"Handy geladen"}
+  ]},
+  {cat:"Verpflegung & Körper", items:[
+    {id:"pk_water", l:"Wasser", s:"Mehr als du denkst"},
+    {id:"pk_electro", l:"Elektrolyte"},
+    {id:"pk_food", l:"Essen für den Tag"},
+    {id:"pk_snack", l:"Riegel und Obst"},
+    {id:"pk_towel", l:"Handtuch"},
+    {id:"pk_clothes", l:"Wechselklamotten"},
+    {id:"pk_sun", l:"Sonnencreme"},
+    {id:"pk_firstaid", l:"Erste-Hilfe-Set"},
+    {id:"pk_painkiller", l:"Schmerzmittel und Pflaster"},
+    {id:"pk_chair", l:"Campingstuhl"}
+  ]},
+  {cat:"Papiere & Sonstiges", items:[
+    {id:"pk_license", l:"Lizenz und Ausweis"},
+    {id:"pk_insurance", l:"Versicherungsnachweis"},
+    {id:"pk_money", l:"Bargeld"},
+    {id:"pk_trashbag", l:"Müllsäcke"},
+    {id:"pk_mat", l:"Umweltmatte"},
+    {id:"pk_bucket", l:"Eimer und Bürste"}
+  ]}
+];
+
+const defaultTraining = () => ({
+  date:"", place:"", goal:"",
+  exDone:{}, pkDone:{},
+  exCustom:[], pkCustom:[],
+  open:{}, history:[]
+});
+let training = defaultTraining();
+
+async function loadTraining(){
+  try {
+    const raw = JSON.parse(await Store.get(K.train) || "null");
+    if (raw && typeof raw === "object") training = Object.assign(defaultTraining(), raw);
+  } catch(e){ training = defaultTraining(); }
+  $("trDate").value = training.date || todayISO();
+  $("trPlace").value = training.place || "";
+  $("trGoal").value = training.goal || "";
+  renderEx(); renderPk(); renderTrHistory();
+}
+async function persistTraining(){ await Store.set(K.train, JSON.stringify(training)); }
+
+/* Fortschrittsring */
+function ringSVG(done, total){
+  const R = 24, C = 2 * Math.PI * R;
+  const pct = total ? done / total : 0;
+  return `<svg width="62" height="62" viewBox="0 0 62 62" aria-hidden="true">
+    <circle cx="31" cy="31" r="${R}" fill="none" stroke="rgba(255,255,255,0.10)" stroke-width="5"/>
+    <circle cx="31" cy="31" r="${R}" fill="none" stroke="var(--accent)" stroke-width="5" stroke-linecap="round"
+      stroke-dasharray="${C}" stroke-dashoffset="${C * (1 - pct)}" transform="rotate(-90 31 31)"/>
+    <text x="31" y="36" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="14" font-weight="600" fill="#eceef1">${Math.round(pct*100)}</text>
+  </svg>`;
+}
+
+/* Gemeinsamer Renderer für beide Checklisten */
+function renderChecklist(cfg){
+  const {catsEl, presets, custom, done, openKey, ringEl, subEl, subTxt, allowAddPerCat, catOfCustom} = cfg;
+  const groups = presets.map(g => ({cat:g.cat, items:g.items.slice()}));
+  custom.forEach(c=>{
+    const cat = c.cat || catOfCustom;
+    let g = groups.find(x => x.cat === cat);
+    if (!g){ g = {cat, items:[]}; groups.push(g); }
+    g.items.push({id:c.id, l:c.l, s:c.s || "", custom:true});
+  });
+
+  const total = groups.reduce((n,g) => n + g.items.length, 0);
+  const doneN = groups.reduce((n,g) => n + g.items.filter(i => done[i.id]).length, 0);
+
+  $(ringEl).innerHTML = ringSVG(doneN, total);
+  $(subEl).textContent = subTxt(doneN, total);
+
+  const box = $(catsEl);
+  box.innerHTML = "";
+  groups.forEach(g=>{
+    const open = !!training.open[openKey + ":" + g.cat];
+    const gDone = g.items.filter(i => done[i.id]).length;
+    const el = document.createElement("div");
+    el.className = "cat" + (open ? " open" : "");
+    el.innerHTML = `
+      <button type="button" class="cat-head">
+        <span class="ch-l">${esc(g.cat)}</span>
+        <span class="ch-r">
+          <span class="cat-count${gDone === g.items.length && g.items.length ? " full" : ""}">${gDone}/${g.items.length}</span>
+          <span class="caret"></span>
+        </span>
+      </button>
+      <div class="cat-body"></div>`;
+
+    el.querySelector(".cat-head").addEventListener("click", ()=>{
+      training.open[openKey + ":" + g.cat] = !open;
+      persistTraining();
+      cfg.rerender();
+    });
+
+    const body = el.querySelector(".cat-body");
+    g.items.forEach(it=>{
+      const row = document.createElement("div");
+      row.className = "ci";
+      row.dataset.done = String(!!done[it.id]);
+      row.innerHTML = `
+        <button type="button" class="box" aria-pressed="${!!done[it.id]}" aria-label="${esc(it.l)}"></button>
+        <div class="ci-l">${esc(it.l)}${it.s ? `<small>${esc(it.s)}</small>` : ""}</div>
+        ${it.custom ? `<button type="button" class="ci-x" aria-label="Löschen">×</button>` : ""}`;
+      const toggle = ()=>{
+        if (done[it.id]) delete done[it.id]; else done[it.id] = true;
+        persistTraining();
+        cfg.rerender();
+      };
+      row.querySelector(".box").addEventListener("click", toggle);
+      row.querySelector(".ci-l").addEventListener("click", toggle);
+      const x = row.querySelector(".ci-x");
+      if (x) x.addEventListener("click", ()=>{
+        cfg.removeCustom(it.id);
+        delete done[it.id];
+        persistTraining();
+        cfg.rerender();
+      });
+      body.appendChild(row);
+    });
+
+    if (allowAddPerCat){
+      const add = document.createElement("div");
+      add.className = "add-row";
+      add.innerHTML = `<input type="text" placeholder="Eigener Eintrag: ${esc(g.cat)}" maxlength="50">
+        <button type="button" class="add-btn">Add</button>`;
+      const inp = add.querySelector("input");
+      const go = ()=>{
+        const v = inp.value.trim();
+        if (!v) return;
+        cfg.addCustom(v, g.cat);
+        training.open[openKey + ":" + g.cat] = true;
+        persistTraining();
+        cfg.rerender();
+      };
+      add.querySelector(".add-btn").addEventListener("click", go);
+      inp.addEventListener("keydown", e => { if (e.key === "Enter") go(); });
+      body.appendChild(add);
+    }
+
+    box.appendChild(el);
+  });
+
+  if (!total) box.innerHTML = `<div class="empty">Nichts auf der Liste.</div>`;
+}
+
+function renderEx(){
+  renderChecklist({
+    catsEl:"exCats", presets:EX_PRESETS, custom:training.exCustom, done:training.exDone,
+    openKey:"ex", ringEl:"exRing", subEl:"exSub",
+    subTxt:(d,t)=> d === 0 ? `${t} Übungen zur Auswahl. Such dir zwei bis drei für heute aus.`
+                 : `${d} von ${t} abgehakt. Mehr als drei pro Tag bringt selten etwas.`,
+    allowAddPerCat:false,
+    catOfCustom:"Eigene Übungen",
+    addCustom:(l, cat)=> training.exCustom.push({id:uid(), l, cat: cat || "Eigene Übungen"}),
+    removeCustom:(id)=> training.exCustom = training.exCustom.filter(x => x.id !== id),
+    rerender: renderEx
+  });
+}
+
+function renderPk(){
+  renderChecklist({
+    catsEl:"pkCats", presets:PK_PRESETS, custom:training.pkCustom, done:training.pkDone,
+    openKey:"pk", ringEl:"pkRing", subEl:"pkSub",
+    subTxt:(d,t)=> `${d} von ${t} eingepackt.` + (d === t && t ? " Alles drin. Losfahren." : ""),
+    allowAddPerCat:true,
+    catOfCustom:"Sonstiges",
+    addCustom:(l, cat)=> training.pkCustom.push({id:uid(), l, cat}),
+    removeCustom:(id)=> training.pkCustom = training.pkCustom.filter(x => x.id !== id),
+    rerender: renderPk
+  });
+}
+
+$("exAddBtn").addEventListener("click", ()=>{
+  const v = $("exNew").value.trim();
+  if (!v){ toast("Übung eintragen"); return; }
+  training.exCustom.push({id:uid(), l:v, cat:"Eigene Übungen"});
+  training.open["ex:Eigene Übungen"] = true;
+  $("exNew").value = "";
+  persistTraining(); renderEx();
+  toast("Übung hinzugefügt");
+});
+$("exNew").addEventListener("keydown", e => { if (e.key === "Enter") $("exAddBtn").click(); });
+
+$("exReset").addEventListener("click", ()=>{
+  training.exDone = {};
+  persistTraining(); renderEx();
+  toast("Haken zurückgesetzt");
+});
+$("pkReset").addEventListener("click", ()=>{
+  training.pkDone = {};
+  persistTraining(); renderPk();
+  toast("Haken zurückgesetzt");
+});
+$("pkAllOpen").addEventListener("click", ()=>{
+  const anyClosed = PK_PRESETS.some(g => !training.open["pk:" + g.cat]);
+  PK_PRESETS.forEach(g => training.open["pk:" + g.cat] = anyClosed);
+  training.pkCustom.forEach(c => training.open["pk:" + c.cat] = anyClosed);
+  persistTraining(); renderPk();
+});
+
+["trDate","trPlace","trGoal"].forEach(id=>{
+  $(id).addEventListener("input", ()=>{
+    training[id === "trDate" ? "date" : id === "trPlace" ? "place" : "goal"] = $(id).value;
+    persistTraining();
+  });
+});
+
+/* Labels für die Zusammenfassung */
+function exLabel(id){
+  for (const g of EX_PRESETS){ const h = g.items.find(i => i.id === id); if (h) return h.l; }
+  const c = training.exCustom.find(x => x.id === id);
+  return c ? c.l : id;
+}
+function pkTotalCount(){
+  return PK_PRESETS.reduce((n,g) => n + g.items.length, 0) + training.pkCustom.length;
+}
+
+$("trFinish").addEventListener("click", async ()=>{
+  const date = $("trDate").value || todayISO();
+  const place = $("trPlace").value.trim();
+  const goal = $("trGoal").value.trim();
+  const doneEx = Object.keys(training.exDone).map(exLabel);
+  const summary = $("trSummary").value.trim();
+
+  if (!doneEx.length && !summary){
+    toast("Erst Übungen abhaken oder etwas schreiben");
+    return;
+  }
+
+  const lines = [];
+  if (goal) lines.push("Ziel: " + goal);
+  if (doneEx.length) lines.push("Geübt: " + doneEx.join(", "));
+  lines.push(`Packliste: ${Object.keys(training.pkDone).length} von ${pkTotalCount()} Punkten abgehakt.`);
+  if (summary) lines.push("", summary);
+
+  notes.unshift({
+    id: uid(), date, type:"ride",
+    title: place ? `Training ${place}` : "Trainingstag",
+    text: lines.join("\n"), hours:0, next:""
+  });
+  await persistNotes();
+
+  training.history.unshift({id:uid(), date, place, goal, ex:doneEx, summary});
+  if (training.history.length > 40) training.history = training.history.slice(0, 40);
+  training.exDone = {};
+  training.pkDone = {};
+  training.goal = "";
+  $("trGoal").value = "";
+  $("trSummary").value = "";
+  await persistTraining();
+  renderEx(); renderPk(); renderTrHistory();
+  toast("Im Notizbuch gespeichert");
+});
+
+function renderTrHistory(){
+  const box = $("trHistory");
+  box.innerHTML = "";
+  if (!training.history.length){
+    box.innerHTML = `<div class="empty">Noch kein abgeschlossener Trainingstag.</div>`;
+    return;
+  }
+  training.history.forEach(h=>{
+    const el = document.createElement("div");
+    el.className = "entry";
+    el.innerHTML = `
+      <div class="entry-top">
+        <span class="tagpill ok">Training</span>
+        <span class="entry-date">${fmtDate(h.date)}</span>
+      </div>
+      <div class="entry-title"></div>
+      ${h.ex && h.ex.length ? `<div class="entry-text"></div>` : ""}
+      <div class="entry-foot">
+        <div class="entry-meta">${h.ex ? h.ex.length : 0} Übungen</div>
+        <button class="icon-btn danger" data-act="del">Löschen</button>
+      </div>`;
+    el.querySelector(".entry-title").textContent = h.place || "Trainingstag";
+    if (h.ex && h.ex.length){
+      el.querySelector(".entry-text").textContent =
+        (h.goal ? "Ziel: " + h.goal + "\n" : "") + "Geübt: " + h.ex.join(", ") + (h.summary ? "\n" + h.summary : "");
+    }
+    el.querySelector('[data-act="del"]').addEventListener("click", async ()=>{
+      training.history = training.history.filter(x => x.id !== h.id);
+      await persistTraining();
+      renderTrHistory();
+      toast("Eintrag gelöscht");
+    });
+    box.appendChild(el);
+  });
+}
+
+/* =====================================================================
+   GARAGE: GESPEICHERTE SETUPS
+   ===================================================================== */
+let savedSetups = [];
+
+async function loadSaved(){
+  try { savedSetups = JSON.parse(await Store.get(K.setups) || "[]"); } catch(e){ savedSetups = []; }
+  if (!Array.isArray(savedSetups)) savedSetups = [];
+  renderSaved();
+}
+async function persistSaved(){ await Store.set(K.setups, JSON.stringify(savedSetups)); renderSaved(); }
+
+function renderSaved(){
+  const box = $("savedList");
+  box.innerHTML = "";
+  $("exportRow").style.display = savedSetups.length ? "flex" : "none";
+  if (!savedSetups.length){
+    box.innerHTML = `<div class="empty">Noch nichts gespeichert. Rechne ein Setup durch und gib ihm einen Namen.</div>`;
+    return;
+  }
+  savedSetups.slice().reverse().forEach(entry=>{
+    const bike = BIKES[entry.data.bike];
+    const brand = bike ? BRANDS[bike.brand] : null;
+    const item = document.createElement("div");
+    item.className = "saved-item";
+    const date = new Date(entry.ts).toLocaleDateString("de-DE", {day:"2-digit", month:"2-digit", year:"2-digit"});
+    item.innerHTML = `
+      <div class="si-bar" style="background:${brand ? brand.accent : "#666"}"></div>
+      <div class="si-main">
+        <div class="si-name"></div>
+        <div class="si-meta"></div>
+      </div>
+      <div class="si-actions">
+        <button class="icon-btn" data-act="load">Laden</button>
+        <button class="icon-btn danger" data-act="del">Löschen</button>
+      </div>`;
+    item.querySelector(".si-name").textContent = entry.name;
+    const ctx = entry.data.mode === "supermoto"
+      ? (entry.data.lowered ? "Supermoto, gekürzt" : "Supermoto / Straße")
+      : (SURFACES[entry.data.surface] ? SURFACES[entry.data.surface].label : "");
+    item.querySelector(".si-meta").textContent =
+      `${brand ? brand.name : "?"} ${bike ? bike.name : ""} · ${ctx} · ${date}`;
+
+    item.querySelector('[data-act="load"]').addEventListener("click", ()=>{
+      if (!bike){ toast("Motorrad nicht mehr in der Datenbank"); return; }
+      state = Object.assign(defaultState(), entry.data);
+      showScreen("setup");
+      renderHeader();
+      renderResults(state);
+      $("wizard").style.display = "none";
+      window.scrollTo({top:0, behavior:"smooth"});
+      toast("Setup geladen");
+    });
+    item.querySelector('[data-act="del"]').addEventListener("click", async ()=>{
+      savedSetups = savedSetups.filter(x => x.id !== entry.id);
+      await persistSaved();
+      toast("Setup gelöscht");
+    });
+    box.appendChild(item);
+  });
+}
+
+$("saveBtn").addEventListener("click", async ()=>{
+  const bike = BIKES[state.bike];
+  const ctx = state.mode === "supermoto" ? "Supermoto / Straße" : SURFACES[state.surface].label;
+  const name = $("setupName").value.trim() || `${BRANDS[bike.brand].name} ${bike.name}, ${ctx}`;
+  savedSetups.push({id: uid(), name, ts: Date.now(), data: JSON.parse(JSON.stringify(state))});
+  if (savedSetups.length > 60) savedSetups = savedSetups.slice(-60);
+  await persistSaved();
+  $("setupName").value = "";
+  toast("Setup gespeichert");
+});
+
+$("exportBtn").addEventListener("click", ()=>{
+  download("suspension-lab-setups.json", JSON.stringify(savedSetups, null, 2));
+  toast("Datei exportiert");
+});
+
+$("clearBtn").addEventListener("click", async ()=>{
+  if (!confirm("Alle gespeicherten Setups löschen?")) return;
+  savedSetups = [];
+  await persistSaved();
+  toast("Alle Setups gelöscht");
+});
+
+$("backupBtn").addEventListener("click", ()=>{
+  download("suspension-lab-backup.json", JSON.stringify({
+    version: 6, exported: new Date().toISOString(),
+    setups: savedSetups, notes, services, training
+  }, null, 2));
+  toast("Backup geladen");
+});
+
+/* =====================================================================
+   NAVIGATION
+   ===================================================================== */
+function showScreen(name){
+  document.querySelectorAll(".screen").forEach(s => s.classList.toggle("active", s.id === "screen-" + name));
+  document.querySelectorAll(".nav-btn").forEach(b=>{
+    b.setAttribute("aria-current", String(b.dataset.screen === name));
+  });
+  /* Topbar / Navbar / Toast / Glow übernehmen die Farbe des offenen Screens */
+  paintTheme(document.documentElement, SCREEN_THEMES[name]);
+  window.scrollTo({top:0});
+}
+document.querySelectorAll(".nav-btn").forEach(b=>{
+  b.addEventListener("click", ()=> showScreen(b.dataset.screen));
+});
+
+document.querySelectorAll(".tab").forEach(tab=>{
+  tab.addEventListener("click", ()=>{
+    document.querySelectorAll(".tab").forEach(t => t.setAttribute("aria-selected","false"));
+    document.querySelectorAll(".tab-panel").forEach(p => p.classList.remove("active"));
+    tab.setAttribute("aria-selected","true");
+    $("tab-" + tab.dataset.tab).classList.add("active");
+  });
+});
+
+$("sourcesBox").innerHTML = `<b>Datenbasis:</b> Fahrerhandbücher und Werks-Spezifikationen der Hersteller,
+Federraten-Referenztabellen von Fahrwerksspezialisten sowie Werkstatt- und Community-Erfahrungswerte.
+Gerundet und ohne Gewähr.`;
+
+/* =====================================================================
+   INIT
+   ===================================================================== */
+function syncDateDefaults(){
+  const t = todayISO();
+  if (!$("noteDate").value) $("noteDate").value = t;
+  if (!$("svcLast").value)  $("svcLast").value = t;
+  if (!$("trDate").value)   $("trDate").value = t;
+}
+
+paintStaticScreenThemes();
+renderHeader();
+renderWizard();
+renderSymptomChips();
+syncDateDefaults();
+loadSaved();
+loadNotes();
+loadTraining();
+</script>
+<script>
+/* Offline-Fähigkeit: Service Worker registrieren.
+   Läuft nur über https (GitHub Pages) oder localhost — beim Öffnen als
+   lose Datei wird er still übersprungen, die App läuft trotzdem. */
+if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("./sw.js", { scope: "./" }).catch(() => {});
+  });
+}
+</script>
+</body>
+</html>
